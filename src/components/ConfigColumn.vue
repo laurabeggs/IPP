@@ -60,7 +60,7 @@ const toOptions = (values: string[]) =>
     </span>
 
     <div class="config__body">
-      <div class="config__preset px-glass-card">
+      <div class="config__preset px-card">
         <PSelect
           label="Preset"
           :model-value="pane.config.merchant"
@@ -73,7 +73,7 @@ const toOptions = (values: string[]) =>
         </p>
       </div>
 
-      <div class="config__fields px-glass-card">
+      <div class="config__fields px-card">
         <h3 class="config__section-title">Details</h3>
         <PSelect
           label="Device"
@@ -114,7 +114,7 @@ const toOptions = (values: string[]) =>
 
 <style scoped>
 /* The whole column scrolls: the header sits on the page background, the
- * sections float in glass containers, and the compare button sticks to the
+ * sections float in their own cards, and the compare button sticks to the
  * bottom while the sections scroll behind it. */
 .config {
   display: grid;

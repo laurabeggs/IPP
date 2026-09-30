@@ -67,8 +67,8 @@ own container, sit two groups of small glass pills: one holding the
 beside it while comparing, and one holding the language, device, and release
 selectors. Picking a property to compare moves its selector out of the
 display group and turns it into the values picker in the compare group: pick
-as many values as you like and every card shows one preview per value in a
-single column. The selectors that stay in the display group remain single and
+as many values as you like and the grid becomes a single column, with each
+screen's previews grouped in one white card. The selectors that stay in the display group remain single and
 keep applying to every preview. Opening a card opens that screen in the
 compared previews, or for the selected device when compare is off, with its
 properties and the same combined Metrics section, period selector included,
@@ -167,11 +167,15 @@ and keep their prop APIs so app code does not need to change.
 The palette is Bento's. `main.ts` imports the light and dark token stylesheets
 from `@adyen/bento-design-tokens`, and every `--px-*` token in
 `src/styles.css` aliases a `--b-*` token, so the app follows Bento's themes.
-The screens sit on background-primary, and the recessed chart band uses
-background-primary-hover. Interactive emphasis — links, checkboxes, focus
-rings, the funnel, and the selected chart node — follows Bento's blue
-highlight family. Dark mode toggles Bento's `b-dark-theme` class on the page
-root alongside `data-theme`.
+The page and the screens sit on the palette's lightest grey,
+background-primary-hover, while the recessed chart band and the panel cards
+sit on white, background-primary. Chart nodes outside the selected
+configuration use Bento's disabled background, outline, and label tokens.
+Interactive emphasis — the funnel, the selected chart node, the selected
+screen in the all-screens strip, tags, and the A/B markers — follows Bento's
+green success family, while links, checkboxes, and focus rings follow the
+blue link-primary family. Dark mode toggles Bento's `b-dark-theme` class on
+the page root alongside `data-theme`.
 
 ## Where the numbers come from
 

@@ -59,7 +59,7 @@ const groups = computed<MetricsGroup[]>(() => {
 </script>
 
 <template>
-  <section class="metrics px-glass-card">
+  <section class="metrics px-card">
     <header class="metrics__header">
       <h3 class="metrics__title">Metrics</h3>
       <PSelect
@@ -260,8 +260,8 @@ const groups = computed<MetricsGroup[]>(() => {
   padding: 5px 9px;
   color: var(--px-text);
   font-size: 11px;
-  background: var(--b-color-background-highlight-weak);
-  border: 1px solid var(--b-color-background-highlight-strong);
+  background: var(--b-color-background-success-weak);
+  border: 1px solid var(--b-color-background-success-strong);
   border-radius: 4px;
   clip-path: polygon(3% 0, 97% 0, 100% 100%, 0 100%);
 }
@@ -275,7 +275,7 @@ const groups = computed<MetricsGroup[]>(() => {
 
 .metrics__funnel-share {
   flex: 0 0 auto;
-  color: var(--b-color-label-on-background-highlight-weak);
+  color: var(--b-color-label-on-background-success-weak);
   font-weight: 600;
   text-align: right;
 }

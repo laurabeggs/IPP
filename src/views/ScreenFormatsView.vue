@@ -88,7 +88,7 @@ const stages = computed<CompareVariant[]>(() => {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  background: var(--px-surface);
+  background: var(--px-bg);
 }
 
 .formats__content {
@@ -142,7 +142,7 @@ const stages = computed<CompareVariant[]>(() => {
 }
 
 /* The panel floats on the page background: the header sits directly on it
- * and the sections carry their own glass containers. */
+ * and the sections carry their own cards. */
 .formats__panel {
   display: flex;
   flex-direction: column;

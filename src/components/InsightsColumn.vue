@@ -61,7 +61,7 @@ const funnel = computed(() =>
 
 <style scoped>
 /* The whole column scrolls: the header sits on the page background and the
- * sections float in glass containers. */
+ * sections float in their own cards. */
 .insights {
   display: flex;
   flex-direction: column;

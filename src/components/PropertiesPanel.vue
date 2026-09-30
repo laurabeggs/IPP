@@ -34,7 +34,7 @@ const featureDocsUrl = computed(() =>
 </script>
 
 <template>
-  <section class="properties px-glass-card">
+  <section class="properties px-card">
     <h3 class="properties__title">Properties</h3>
 
     <dl class="properties__list">

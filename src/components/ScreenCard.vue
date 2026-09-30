@@ -21,6 +21,7 @@ defineEmits<{ select: [] }>();
   <button
     type="button"
     class="screen-card"
+    :class="{ 'screen-card--compare': Boolean(variants?.length) }"
     @click="$emit('select')"
   >
     <div v-if="variants && variants.length" class="screen-card__compare">
@@ -36,7 +37,7 @@ defineEmits<{ select: [] }>();
           :device-id="variant.device"
           :language="variant.language"
           :currency="variant.currency"
-          size="mini"
+          size="compact"
         />
         <span class="screen-card__compare-label">{{ variant.label }}</span>
       </div>
@@ -56,6 +57,7 @@ defineEmits<{ select: [] }>();
 </template>
 
 <style scoped>
+/* Every screen sits in its own white card on the grey page. */
 .screen-card {
   display: flex;
   flex-direction: column;
@@ -63,8 +65,8 @@ defineEmits<{ select: [] }>();
   gap: 8px;
   min-width: 0;
   padding: 14px 8px 18px;
-  background: transparent;
-  border: 1px solid transparent;
+  background: var(--px-surface);
+  border: 1px solid var(--px-border-subtle);
   border-radius: 10px;
   cursor: pointer;
   font: inherit;
@@ -73,16 +75,27 @@ defineEmits<{ select: [] }>();
 }
 
 .screen-card:hover {
-  border-color: var(--px-border-subtle);
-  background: var(--px-glass);
+  border-color: var(--px-border);
+  box-shadow: var(--px-shadow-sm);
   transform: translateY(-2px);
 }
 
 .screen-card:focus-visible {
   border-color: var(--px-border);
-  background: var(--px-glass-strong);
   outline: var(--b-focus-ring-outline) solid var(--b-focus-ring-color);
   outline-offset: var(--b-focus-ring-spacer);
+}
+
+/* Comparing groups one screen's versions into a single card, so each set
+ * reads as one screen rather than a row of loose previews. The card spans
+ * the row, so it stays put on hover. */
+.screen-card--compare {
+  gap: 12px;
+  padding: 20px 24px 22px;
+}
+
+.screen-card--compare:hover {
+  transform: none;
 }
 
 .screen-card__title {
@@ -100,11 +113,13 @@ defineEmits<{ select: [] }>();
   color: var(--px-text-muted);
 }
 
+/* The previews keep their own size instead of stretching to fill the row,
+ * so the space between them stays at the 24px gap however many there are. */
 .screen-card__compare {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 10px;
+  gap: 24px;
   width: 100%;
 }
 
@@ -112,9 +127,9 @@ defineEmits<{ select: [] }>();
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
-  flex: 1 1 116px;
+  flex: 0 0 auto;
 }
 
 .screen-card__compare-label {

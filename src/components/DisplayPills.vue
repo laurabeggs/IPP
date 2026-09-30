@@ -165,7 +165,7 @@ function comparingBy(property: LibraryCompareProperty): boolean {
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--px-border-subtle);
   border-radius: 999px;
-  box-shadow: var(--px-shadow-lg);
+  box-shadow: var(--px-shadow-sm);
 }
 
 .display-pills__group :deep(.p-select),

@@ -178,7 +178,7 @@ onUnmounted(() => {
 .flow-resize-handle:hover span,
 .flow-resize-handle:focus-visible span {
   width: 64px;
-  background: var(--b-color-background-highlight-strong);
+  background: var(--b-color-background-success-strong);
 }
 
 .flow-resize-handle:focus-visible {
@@ -203,30 +203,35 @@ onUnmounted(() => {
   border-top: 1px solid var(--px-border-subtle);
 }
 
+/* The same pill container as the library's display pills: frosted glass,
+ * fully rounded, on a low shadow. */
 .screen-layout-switch {
   position: absolute;
   z-index: 5;
   top: 12px;
   left: 50%;
   display: flex;
-  gap: 2px;
-  padding: 3px;
-  background: var(--px-glass-solid);
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--px-glass-strong);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--px-border-subtle);
-  border-radius: 8px;
+  border-radius: 999px;
   box-shadow: var(--px-shadow-sm);
   transform: translateX(-50%);
 }
 
 .screen-layout-switch__option {
-  padding: 6px 10px;
+  padding: 5px 12px;
   font: inherit;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--px-text-muted);
   background: transparent;
   border: none;
-  border-radius: 5px;
+  border-radius: 999px;
   cursor: pointer;
 }
 
@@ -237,7 +242,7 @@ onUnmounted(() => {
 .screen-layout-switch__option--active {
   color: var(--px-text);
   background: var(--px-surface);
-  box-shadow: 0 1px 2px rgba(31, 42, 55, 0.08);
+  box-shadow: var(--px-shadow-sm);
 }
 
 @media (max-width: 760px) {

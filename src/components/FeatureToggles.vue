@@ -27,7 +27,7 @@ const optionsFor = (feature: Feature) =>
 </script>
 
 <template>
-  <div v-if="applicable.length" class="features px-glass-card">
+  <div v-if="applicable.length" class="features px-card">
     <h3 class="features__title">Features</h3>
     <div v-for="feature in applicable" :key="feature.id" class="features__item">
       <PToggle

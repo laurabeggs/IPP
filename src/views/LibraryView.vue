@@ -71,7 +71,7 @@ function selectScreen(screen: Screen): void {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  background: var(--px-surface);
+  background: var(--px-bg);
 }
 
 .library__content {
@@ -111,8 +111,18 @@ function selectScreen(screen: Screen): void {
   }
 }
 
-/* After the media queries, so compared screens take the full width. */
+/* After the media queries, so compared screens take the full width: one
+ * card per screen, holding that screen's compared versions. */
 .library__grid--compare {
   grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  padding: 28px 40px 40px;
+}
+
+@media (max-width: 900px) {
+  .library__grid--compare {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
 }
 </style>

@@ -36,7 +36,7 @@ withDefaults(
 }
 
 .p-tag--accent {
-  background: var(--b-color-background-highlight-weak);
-  color: var(--b-color-label-on-background-highlight-weak);
+  background: var(--b-color-background-success-weak);
+  color: var(--b-color-label-on-background-success-weak);
 }
 </style>

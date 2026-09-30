@@ -71,8 +71,8 @@ const { pane, flow, missingConfigParts } = usePane(() => props.paneIndex);
 }
 
 .screen-strip__item--active {
-  background: var(--px-glass-strong);
-  border-color: var(--px-border);
+  background: var(--b-color-background-success-weak);
+  border-color: var(--b-color-background-success-strong);
 }
 
 .screen-strip__title {

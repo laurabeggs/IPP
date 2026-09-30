@@ -233,9 +233,10 @@ const arrowId = `flow-arrow-${(instanceCount += 1)}`;
 .chart__edge-label {
   font-size: 10px;
   fill: var(--px-text-muted);
-  /* Keeps the label readable where it crosses a connector. */
+  /* Keeps the label readable where it crosses a connector: the halo matches
+     the band behind the chart. */
   paint-order: stroke;
-  stroke: var(--px-bg);
+  stroke: var(--px-surface);
   stroke-width: 3px;
   stroke-linejoin: round;
 }
@@ -274,17 +275,19 @@ const arrowId = `flow-arrow-${(instanceCount += 1)}`;
 }
 
 .chart__node--disabled {
-  color: var(--px-text-muted);
-  background: var(--px-surface-muted);
+  /* Bento's disabled family, so an option outside the configuration greys
+     out against the white band instead of reading as another open screen. */
+  color: var(--b-color-label-disabled);
+  background: var(--b-color-background-disabled);
+  border-color: var(--b-color-outline-disabled);
   border-style: dashed;
-  opacity: 0.52;
   cursor: not-allowed;
   box-shadow: none;
 }
 
 .chart__node--active {
-  border-color: var(--b-color-background-highlight-strong);
-  background: var(--b-color-background-highlight-weak);
+  border-color: var(--b-color-background-success-strong);
+  background: var(--b-color-background-success-weak);
   font-weight: 600;
 }
 
@@ -300,6 +303,6 @@ const arrowId = `flow-arrow-${(instanceCount += 1)}`;
   font-size: 10px;
   font-weight: 700;
   color: var(--b-color-label-on-color);
-  background: var(--b-color-background-highlight-strong);
+  background: var(--b-color-background-success-strong);
 }
 </style>

@@ -181,7 +181,7 @@ function goTo(stepId: string | undefined): void {
 }
 
 /* The side columns float on the page background: their sections carry
- * their own glass containers, nothing frames the column itself. */
+ * their own cards, nothing frames the column itself. */
 .row__side {
   position: absolute;
   z-index: 3;
@@ -252,8 +252,9 @@ function goTo(stepId: string | undefined): void {
   gap: 24px;
   padding: 28px var(--screen-inset-right) 32px var(--screen-inset-left);
   overflow: hidden;
-  /* The screens sit on a primary surface; the side panels float on it. */
-  background: var(--px-surface);
+  /* The screens sit on the palette's lightest grey; the side panels and
+     the band all share it. */
+  background: var(--px-surface-muted);
 }
 
 .row__screen--all {

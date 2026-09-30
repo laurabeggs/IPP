@@ -85,8 +85,9 @@ const enabledStepIds = computed(() => {
   flex-direction: column;
   min-height: 30px;
   padding: 18px 64px 18px 40px;
-  /* The recessed band: one step warmer than the screens' primary surface. */
-  background: var(--px-surface-muted);
+  /* The recessed band is white against the grey screens area, and reads as a
+     recess through its inset shadow and hairline borders. */
+  background: var(--px-surface);
   border-top: 1px solid var(--px-border-subtle);
   border-bottom: 1px solid var(--px-border-subtle);
   box-shadow: inset 0 8px 16px rgba(31, 42, 55, 0.045),

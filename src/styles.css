@@ -10,7 +10,8 @@
   color-scheme: light;
   --px-accent: var(--b-color-link-primary);
   --px-link: var(--b-color-link-primary);
-  --px-bg: var(--b-color-background-secondary);
+  /* The lightest grey in the palette: only white is lighter. */
+  --px-bg: var(--b-color-background-primary-hover);
   --px-surface: var(--b-color-background-primary);
   --px-surface-muted: var(--b-color-background-primary-hover);
   --px-border: var(--b-color-outline-secondary);
@@ -20,7 +21,6 @@
   --px-text-critical: var(--b-color-label-critical);
   --px-glass: rgba(255, 255, 255, 0.42);
   --px-glass-strong: rgba(255, 255, 255, 0.66);
-  --px-glass-solid: rgba(255, 255, 255, 0.9);
   --px-radius: var(--b-border-radius-l);
   --px-radius-lg: var(--b-border-radius-xl);
   --px-shadow-sm: var(--b-shadow-low);
@@ -41,7 +41,6 @@
   color-scheme: dark;
   --px-glass: rgba(44, 54, 68, 0.42);
   --px-glass-strong: rgba(44, 54, 68, 0.66);
-  --px-glass-solid: rgba(26, 34, 44, 0.9);
 }
 
 * {
@@ -72,13 +71,11 @@ select {
   font-family: inherit;
 }
 
-/* A floating glass container for one panel section, in the same material as
-   the library's display pill groups: frosted glass on the page background. */
-.px-glass-card {
+/* A floating container for one panel section: a solid card on the page
+   background, so the panels stay readable over whatever scrolls beneath. */
+.px-card {
   padding: 16px;
-  background: var(--px-glass-strong);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--px-surface);
   border: 1px solid var(--px-border-subtle);
   border-radius: var(--px-radius-lg);
   box-shadow: var(--px-shadow-sm);
