@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import App from '../App.vue';
+import { GATE_STORAGE_KEY } from '../lib/gate';
 import {
   addComparison,
   defaultState,
@@ -35,6 +36,8 @@ afterEach(() => {
 });
 
 async function mountApp() {
+  // The app-level tests bypass the password gate; gate.test.ts covers it.
+  sessionStorage.setItem(GATE_STORAGE_KEY, '1');
   const wrapper = mount(App, { attachTo: document.body });
   mounted = wrapper;
   await wrapper.vm.$nextTick();

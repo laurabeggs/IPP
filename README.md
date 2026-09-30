@@ -194,6 +194,21 @@ comparison rows, collapse rails, branch navigation, arrow-key navigation,
 feature toggles, the one-screen/all-screens control, the Screens tab, and the
 Ask dock.
 
+## Password gate
+
+The hosted copy asks for a password before it opens. GitHub Pages cannot check
+a password on the server, so the gate is client-side: `PasswordGate` keeps the
+app unmounted until the entered password hashes to `PASSWORD_DIGEST` in
+`src/lib/gate.ts`. The password itself is not in the source or the bundle; only
+its SHA-256 digest is. The unlock lasts for the browser session, so closing the
+tab locks it again. This is a soft gate: it turns away casual visitors, but the
+bundle stays publicly fetchable, so it is not protection against someone
+determined.
+
+To change the password, replace `PASSWORD_DIGEST` with the SHA-256 hex digest
+of the new password, for example from `printf 'new password' | shasum -a 256`,
+then build and deploy again.
+
 ## Deploy
 
 The site is deployed from the committed `site-dist/` folder: Netlify publishes
@@ -213,6 +228,7 @@ site updates on the next push. Screenshot URLs join Vite's build base through
 
 ## Scope
 
-Front-end only: no API integration, authentication, analytics, or persistence.
+Front-end only: no API integration, user authentication, analytics, or
+persistence.
 The source lives in this repository; the prototype is deployed on Netlify and
 on GitHub Pages.

@@ -17,6 +17,7 @@
   --px-border-subtle: var(--b-color-outline-primary);
   --px-text: var(--b-color-label-primary);
   --px-text-muted: var(--b-color-label-secondary);
+  --px-text-critical: var(--b-color-label-critical);
   --px-glass: rgba(255, 255, 255, 0.42);
   --px-glass-strong: rgba(255, 255, 255, 0.66);
   --px-glass-solid: rgba(255, 255, 255, 0.9);

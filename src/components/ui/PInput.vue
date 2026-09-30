@@ -13,8 +13,10 @@ withDefaults(
     placeholder?: string;
     /** Hides the label visually while keeping it available to screen readers. */
     hideLabel?: boolean;
+    /** Control type: plain text or a masked password field. */
+    type?: 'text' | 'password';
   }>(),
-  { placeholder: '', hideLabel: false },
+  { placeholder: '', hideLabel: false, type: 'text' },
 );
 
 defineEmits<{
@@ -30,7 +32,7 @@ defineEmits<{
     </span>
     <input
       class="p-input__control"
-      type="text"
+      :type="type"
       :value="modelValue"
       :placeholder="placeholder"
       @input="

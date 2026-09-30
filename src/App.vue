@@ -6,6 +6,7 @@ import { allScreens, filterScreens, owningTeams } from './lib/flows';
 import { shareLink, useAppState } from './lib/state';
 import { applyTheme, preferredTheme, saveTheme } from './lib/theme';
 import AskDock from './components/AskDock.vue';
+import PasswordGate from './components/PasswordGate.vue';
 import PButton from './components/ui/PButton.vue';
 import PIcon from './components/ui/PIcon.vue';
 import PIconButton from './components/ui/PIconButton.vue';
@@ -97,6 +98,7 @@ function toggleTheme(): void {
 </script>
 
 <template>
+  <PasswordGate>
   <div class="app">
     <header class="app__topbar">
       <div class="app__leading">
@@ -201,6 +203,7 @@ function toggleTheme(): void {
 
     <AskDock v-if="state.askOpen" />
   </div>
+  </PasswordGate>
 </template>
 
 <style scoped>
