@@ -1,0 +1,84 @@
+/*
+ * Global styling for the Payment Flow Explorer.
+ *
+ * The palette is Bento's: main.ts loads the token stylesheets from
+ * @adyen/bento-design-tokens (light at :root, dark under .b-dark-theme) and
+ * every --px-* token below aliases a --b-* token, so the app follows Bento's
+ * themes. Only the frosted-glass tokens are app-specific.
+ */
+:root {
+  color-scheme: light;
+  --px-accent: var(--b-color-link-primary);
+  --px-link: var(--b-color-link-primary);
+  --px-bg: var(--b-color-background-secondary);
+  --px-surface: var(--b-color-background-primary);
+  --px-surface-muted: var(--b-color-background-primary-hover);
+  --px-border: var(--b-color-outline-secondary);
+  --px-border-subtle: var(--b-color-outline-primary);
+  --px-text: var(--b-color-label-primary);
+  --px-text-muted: var(--b-color-label-secondary);
+  --px-glass: rgba(255, 255, 255, 0.42);
+  --px-glass-strong: rgba(255, 255, 255, 0.66);
+  --px-glass-solid: rgba(255, 255, 255, 0.9);
+  --px-radius: var(--b-border-radius-l);
+  --px-radius-lg: var(--b-border-radius-xl);
+  --px-shadow-sm: var(--b-shadow-low);
+  --px-shadow-lg: var(--b-shadow-high);
+  --px-content-width: 1440px;
+  --px-font:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
+}
+
+/*
+ * Dark theme. applyTheme toggles data-theme and Bento's b-dark-theme class
+ * on the same page root, so Bento's dark token values swap in and every
+ * alias above follows them. Only the glass tokens need values of their own;
+ * color-scheme lets native form controls follow along.
+ */
+[data-theme='dark'] {
+  color-scheme: dark;
+  --px-glass: rgba(44, 54, 68, 0.42);
+  --px-glass-strong: rgba(44, 54, 68, 0.66);
+  --px-glass-solid: rgba(26, 34, 44, 0.9);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--px-bg);
+  color: var(--px-text);
+  font-family: var(--px-font);
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+button,
+input,
+select {
+  font-family: inherit;
+}
+
+/* A floating glass container for one panel section, in the same material as
+   the library's display pill groups: frosted glass on the page background. */
+.px-glass-card {
+  padding: 16px;
+  background: var(--px-glass-strong);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--px-border-subtle);
+  border-radius: var(--px-radius-lg);
+  box-shadow: var(--px-shadow-sm);
+}

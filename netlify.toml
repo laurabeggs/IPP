@@ -1,0 +1,11 @@
+# The built site is committed in site-dist/ and published as-is. Netlify
+# installs nothing and runs no build: the repo's own npm install repeatedly
+# crashed on Netlify's build system, so this prototype ships prebuilt.
+
+[build]
+  publish = "site-dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
