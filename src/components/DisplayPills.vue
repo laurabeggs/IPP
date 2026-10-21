@@ -33,8 +33,9 @@ const compareMode = computed(() =>
   state.libraryCompareOn ? state.libraryCompareProperty : '',
 );
 
+// 'None' is the empty value, which PSelect adds from the placeholder so the
+// control still reads 'None' while nothing is being compared.
 const compareModeOptions: { value: string; label: string }[] = [
-  { value: '', label: 'None' },
   { value: 'language', label: 'Language' },
   { value: 'device', label: 'Device' },
   { value: 'release', label: 'Release' },
@@ -81,6 +82,7 @@ function comparingBy(property: LibraryCompareProperty): boolean {
         size="compact"
         label="Compare"
         hide-label
+        placeholder="None"
         :model-value="compareMode"
         :options="compareModeOptions"
         @update:model-value="setCompareMode"
@@ -149,7 +151,12 @@ function comparingBy(property: LibraryCompareProperty): boolean {
 </template>
 
 <style scoped>
+/* The groups' frosted glass makes each one its own stacking context, so the
+ * dropdown lists inside them can only rise above the screen previews that
+ * follow if the pills as a whole sit on a higher layer. The views place the
+ * pills (sticky), which is what lets the z-index apply. */
 .display-pills {
+  z-index: var(--b-z-index-global-elevated);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -171,6 +178,27 @@ function comparingBy(property: LibraryCompareProperty): boolean {
 .display-pills__group :deep(.p-select),
 .display-pills__group :deep(.p-multi-select) {
   flex: 0 0 auto;
+}
+
+/* The toolbar's dropdowns are pills: fully rounded, with the light border
+ * and 12px text the toolbar used before it moved to Bento's dropdown. The
+ * small chevron comes from the shared compact select styles. */
+.display-pills__group :deep(.b-dropdown-default-textbox) {
+  border-color: var(--px-border-subtle);
+  border-radius: 999px;
+}
+
+.display-pills__group :deep(.b-dropdown-default-textbox:hover) {
+  border-color: var(--px-border);
+}
+
+.display-pills__group :deep(.b-dropdown-default-textbox__textbox) {
+  padding: 0 9px 0 12px;
+}
+
+.display-pills__group :deep(.b-dropdown-base-textbox) {
+  font-size: 12px;
+  line-height: 16px;
 }
 
 .display-pills__label {

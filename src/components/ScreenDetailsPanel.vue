@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { BentoDivider } from '@adyen/bento-vue3';
 import { flows } from '../data/flows';
-import { flowFunnel, flowMetrics, screenMetrics } from '../lib/metrics';
+import { flowAlluvial } from '../lib/alluvial';
+import { screenMetrics } from '../lib/metrics';
 import PropertiesPanel from './PropertiesPanel.vue';
 import MetricsPanel from './MetricsPanel.vue';
 import type { Screen } from '../types/flow';
@@ -18,25 +20,24 @@ const sourceFlow = computed(() =>
 const screenMetricValues = computed(() =>
   screenMetrics(props.screen.step, props.range),
 );
-const flowMetricValues = computed(() =>
-  sourceFlow.value ? flowMetrics(sourceFlow.value, props.range) : undefined,
-);
-const funnel = computed(() =>
-  sourceFlow.value ? flowFunnel(sourceFlow.value, props.range) : undefined,
+const alluvial = computed(() =>
+  sourceFlow.value ? flowAlluvial(sourceFlow.value, props.range) : undefined,
 );
 </script>
 
 <template>
   <div class="screen-details">
     <PropertiesPanel
+      variant="section"
       :properties="screen.properties"
-      :feature-name="screen.featureName"
       :feature-id="screen.step.featureId"
     />
+    <BentoDivider />
     <MetricsPanel
+      variant="section"
       :screen="screenMetricValues"
-      :flow="flowMetricValues"
-      :funnel="funnel"
+      :alluvial="alluvial"
+      :flow-name="sourceFlow?.name"
     />
   </div>
 </template>
@@ -45,6 +46,6 @@ const funnel = computed(() =>
 .screen-details {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--b-spacer-060);
 }
 </style>

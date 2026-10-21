@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import { BentoPopover } from '@adyen/bento-vue3';
 import { answerQuestion, suggestedQuestions } from '../lib/ask';
 import { openFlowStep, useAppState } from '../lib/state';
 import PButton from './ui/PButton.vue';
@@ -8,9 +9,15 @@ import PInput from './ui/PInput.vue';
 import type { AskAnswer } from '../lib/ask';
 
 /**
- * A floating box for questions about the same placeholder data, opened from the
- * header. Still a keyword-matched stand-in, not a real model.
+ * A popover for questions about the same placeholder data, anchored to the
+ * Ask button in the header. Still a keyword-matched stand-in, not a real
+ * model.
  */
+defineProps<{
+  /** The header button the popover points at. */
+  target: HTMLElement;
+}>();
+
 const state = useAppState();
 
 const draft = ref('');
@@ -30,93 +37,80 @@ function open(flowId: string, stepId?: string): void {
 </script>
 
 <template>
-  <aside class="ask" role="dialog" aria-label="Ask">
-    <header class="ask__header">
-      <h2 class="ask__title">Ask</h2>
-      <PIconButton
-        icon="close"
-        label="Close"
-        variant="plain"
-        @click="state.askOpen = false"
-      />
-    </header>
+  <BentoPopover
+    class="ask"
+    open
+    title="Ask"
+    dismissible
+    position="bottom-end"
+    :target-element="target"
+    @dismiss="state.askOpen = false"
+  >
+    <div class="ask__body">
+      <div class="ask__row">
+        <PInput
+          class="ask__input"
+          label="Question"
+          hide-label
+          :model-value="draft"
+          placeholder="Ask about the flows"
+          @update:model-value="draft = $event"
+          @submit="ask(draft)"
+        />
+        <PButton variant="primary" @click="ask(draft)">Ask</PButton>
+      </div>
 
-    <div class="ask__row">
-      <PInput
-        class="ask__input"
-        label="Question"
-        hide-label
-        :model-value="draft"
-        placeholder="Ask about the flows"
-        @update:model-value="draft = $event"
-        @submit="ask(draft)"
-      />
-      <PButton variant="primary" @click="ask(draft)">Ask</PButton>
-    </div>
+      <div v-if="!answer" class="ask__suggestions">
+        <PButton
+          v-for="question in suggestedQuestions"
+          :key="question"
+          class="ask__chip"
+          @click="ask(question)"
+        >
+          {{ question }}
+        </PButton>
+      </div>
 
-    <div v-if="!answer" class="ask__suggestions">
-      <button
-        v-for="question in suggestedQuestions"
-        :key="question"
-        type="button"
-        class="ask__chip"
-        @click="ask(question)"
-      >
-        {{ question }}
-      </button>
+      <div v-else class="ask__answer">
+        <p class="ask__headline">{{ answer.headline }}</p>
+        <ul class="ask__rows">
+          <li
+            v-for="row in answer.rows"
+            :key="row.label"
+            class="ask__answer-row"
+          >
+            <span class="ask__row-label">
+              {{ row.label }}
+              <span v-if="row.detail" class="ask__row-detail">
+                {{ row.detail }}
+              </span>
+            </span>
+            <span class="ask__row-value">{{ row.value }}</span>
+            <PIconButton
+              v-if="row.flowId"
+              icon="arrow-right"
+              label="Open this screen"
+              @click="open(row.flowId, row.stepId)"
+            />
+          </li>
+        </ul>
+      </div>
     </div>
-
-    <div v-else class="ask__answer">
-      <p class="ask__headline">{{ answer.headline }}</p>
-      <ul class="ask__rows">
-        <li v-for="row in answer.rows" :key="row.label" class="ask__answer-row">
-          <span class="ask__row-label">
-            {{ row.label }}
-            <span v-if="row.detail" class="ask__row-detail">{{ row.detail }}</span>
-          </span>
-          <span class="ask__row-value">{{ row.value }}</span>
-          <PIconButton
-            v-if="row.flowId"
-            icon="arrow-right"
-            label="Open this screen"
-            @click="open(row.flowId, row.stepId)"
-          />
-        </li>
-      </ul>
-    </div>
-  </aside>
+  </BentoPopover>
 </template>
 
 <style scoped>
 .ask {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
   z-index: 20;
-  width: min(380px, calc(100vw - 32px));
-  max-height: min(70vh, 640px);
-  overflow-y: auto;
+}
+
+.ask__body {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 20px;
-  background: var(--px-surface);
-  border: 1px solid var(--px-border-subtle);
-  border-radius: var(--px-radius-lg);
-  box-shadow: var(--px-shadow-lg);
-}
-
-.ask__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-}
-
-.ask__title {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 700;
+  width: min(340px, calc(100vw - 48px));
+  max-height: min(60vh, 560px);
+  overflow-y: auto;
 }
 
 .ask__row {
@@ -137,19 +131,7 @@ function open(flowId: string, stepId?: string): void {
 }
 
 .ask__chip {
-  font: inherit;
-  font-size: 12px;
   text-align: left;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--px-border-subtle);
-  background: var(--px-surface);
-  cursor: pointer;
-}
-
-.ask__chip:hover {
-  border-color: var(--b-color-link-primary-hover);
-  background: var(--px-surface-muted);
 }
 
 .ask__answer {
@@ -201,12 +183,5 @@ function open(flowId: string, stepId?: string): void {
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
-}
-
-@media (max-width: 720px) {
-  .ask {
-    right: 16px;
-    bottom: 16px;
-  }
 }
 </style>

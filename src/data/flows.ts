@@ -95,6 +95,7 @@ export const flows: PaymentFlow[] = [
       {
         id: 'declined',
         title: 'Declined',
+        outcome: 'negative',
         shopperDescription:
           'The payment is refused. The shopper is told the payment did not go through and can try another card.',
         propertyOverrides: { owningTeam: 'Checkout Experience' },
@@ -313,6 +314,7 @@ export const flows: PaymentFlow[] = [
       {
         id: 'refund-failed',
         title: 'Refund failed',
+        outcome: 'negative',
         shopperDescription:
           'The refund could not be completed and the shopper is directed to staff.',
         propertyOverrides: { owningTeam: 'Checkout Experience' },
@@ -402,6 +404,7 @@ export const flows: PaymentFlow[] = [
       {
         id: 'preauth-refused',
         title: 'Hold refused',
+        outcome: 'negative',
         shopperDescription:
           'The holding amount was refused and the shopper is asked to try another card.',
         propertyOverrides: { owningTeam: 'Checkout Experience' },

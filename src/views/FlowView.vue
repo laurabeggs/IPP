@@ -1,11 +1,17 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue';
+import { BentoSegmentedControl } from '@adyen/bento-vue3';
 import { usePane } from '../lib/pane';
 import { useAppState } from '../lib/state';
 import FlowBand from '../components/FlowBand.vue';
 import ScreenRow from '../components/ScreenRow.vue';
 
 const state = useAppState();
+
+const screenLayoutOptions = [
+  { label: 'One screen', value: 'single' },
+  { label: 'All screens', value: 'all' },
+];
 
 // Both panes always exist, so both contexts can be built up front.
 const contexts = [usePane(() => 0), usePane(() => 1)];
@@ -95,33 +101,26 @@ onUnmounted(() => {
       >
         <span aria-hidden="true" />
       </div>
-      <div class="screen-area">
-        <div class="screen-layout-switch" role="group" aria-label="Screen view">
-          <button
-            type="button"
-            class="screen-layout-switch__option"
-            :class="{
-              'screen-layout-switch__option--active':
-                state.screenLayout === 'single',
-            }"
-            :aria-pressed="state.screenLayout === 'single'"
-            @click="state.screenLayout = 'single'"
-          >
-            One screen
-          </button>
-          <button
-            type="button"
-            class="screen-layout-switch__option"
-            :class="{
-              'screen-layout-switch__option--active':
-                state.screenLayout === 'all',
-            }"
-            :aria-pressed="state.screenLayout === 'all'"
-            @click="state.screenLayout = 'all'"
-          >
-            All screens
-          </button>
-        </div>
+      <div
+        class="screen-area"
+        :style="{
+          '--screens-left': state.configOpen
+            ? 'var(--px-panel-width)'
+            : 'var(--px-panel-button-inset)',
+          '--screens-right': state.insightsOpen
+            ? 'var(--px-panel-width)'
+            : 'var(--px-panel-button-inset)',
+        }"
+      >
+        <BentoSegmentedControl
+          class="screen-layout-switch"
+          aria-label="Screen view"
+          :items="screenLayoutOptions"
+          :model-value="state.screenLayout"
+          @update:model-value="
+            state.screenLayout = $event === 'all' ? 'all' : 'single'
+          "
+        />
         <ScreenRow :pane-index="0" :label="state.compare ? 'A' : ''" />
         <ScreenRow v-if="state.compare" :pane-index="1" label="B" />
       </div>
@@ -203,46 +202,22 @@ onUnmounted(() => {
   border-top: 1px solid var(--px-border-subtle);
 }
 
-/* The same pill container as the library's display pills: frosted glass,
- * fully rounded, on a low shadow. */
+/* Bento's segmented control supplies the track and the selected segment; it
+ * only needs to float over the screens, on a low shadow. It centres on the
+ * screens themselves, not the row, so an open panel does not cover it. */
 .screen-layout-switch {
   position: absolute;
   z-index: 5;
   top: 12px;
-  left: 50%;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  background: var(--px-glass-strong);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--px-border-subtle);
-  border-radius: 999px;
+  left: calc(50% + (var(--screens-left, 0px) - var(--screens-right, 0px)) / 2);
   box-shadow: var(--px-shadow-sm);
   transform: translateX(-50%);
 }
 
-.screen-layout-switch__option {
-  padding: 5px 12px;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--px-text-muted);
-  background: transparent;
-  border: none;
-  border-radius: 999px;
-  cursor: pointer;
-}
-
-.screen-layout-switch__option:hover {
-  color: var(--px-text);
-}
-
-.screen-layout-switch__option--active {
-  color: var(--px-text);
-  background: var(--px-surface);
-  box-shadow: var(--px-shadow-sm);
+@media (max-width: 760px) {
+  .screen-layout-switch {
+    left: 50%;
+  }
 }
 
 @media (max-width: 760px) {

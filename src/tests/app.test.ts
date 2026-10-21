@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { DOMWrapper, flushPromises, mount } from '@vue/test-utils';
 import App from '../App.vue';
+import PMultiSelect from '../components/ui/PMultiSelect.vue';
+import PSelect from '../components/ui/PSelect.vue';
 import { GATE_STORAGE_KEY } from '../lib/gate';
 import {
   addComparison,
@@ -11,13 +13,22 @@ import {
   useAppState,
 } from '../lib/state';
 
+// Bento's own components produce these: their i18n wrapper calls useI18n in
+// component scope, and the menu emits open/close without declaring them.
+// Both come from inside the design system, so they are not this app's to fix.
+const fromBento = [
+  'Duplicate `useI18n` calling by local scope',
+  'it is neither declared in the emits option',
+];
+
 const warnings: string[] = [];
-vi.spyOn(console, 'warn').mockImplementation((...args: unknown[]) => {
-  warnings.push(args.join(' '));
-});
-vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
-  warnings.push(args.join(' '));
-});
+function record(...args: unknown[]): void {
+  const line = args.join(' ');
+  if (fromBento.some((noise) => line.includes(noise))) return;
+  warnings.push(line);
+}
+vi.spyOn(console, 'warn').mockImplementation(record);
+vi.spyOn(console, 'error').mockImplementation(record);
 
 function resetState() {
   window.history.replaceState(null, '', window.location.pathname);
@@ -44,51 +55,162 @@ async function mountApp() {
   return wrapper;
 }
 
+type Wrapper = Awaited<ReturnType<typeof mountApp>>;
+
+/**
+ * Bento's dropdown opens its options into a floating layer, which costs a
+ * second or so per interaction under jsdom. The dropdowns are opened for
+ * real where the point of the test is the interaction itself; everywhere
+ * else a choice is made through the dropdown component, which is the same
+ * event the options emit.
+ */
+function chooseIn(
+  wrapper: Wrapper,
+  region: string,
+  label: string,
+  value: string,
+): Promise<void> {
+  const select = wrapper
+    .findAllComponents(PSelect)
+    .find(
+      (candidate) =>
+        candidate.props('label') === label &&
+        Boolean(candidate.element.closest(region)),
+    );
+  if (!select) throw new Error(`no "${label}" dropdown in ${region}`);
+  select.vm.$emit('update:modelValue', value);
+  return wrapper.vm.$nextTick();
+}
+
+function chooseManyIn(
+  wrapper: Wrapper,
+  region: string,
+  label: string,
+  values: string[],
+): Promise<void> {
+  const select = wrapper
+    .findAllComponents(PMultiSelect)
+    .find(
+      (candidate) =>
+        candidate.props('label') === label &&
+        Boolean(candidate.element.closest(region)),
+    );
+  if (!select) throw new Error(`no "${label}" multi-select in ${region}`);
+  select.vm.$emit('update:modelValue', values);
+  return wrapper.vm.$nextTick();
+}
+
+/** The names of the dropdowns on show in a region, in the order they sit. */
+const dropdownNames = (wrapper: Wrapper, region: string) =>
+  wrapper
+    .findAll(`${region} [role="combobox"]`)
+    .map((combobox) => combobox.attributes('aria-label'));
+
+/** The titles of the open inspectors, in the order they sit in the row. */
+const inspectorTitles = (wrapper: Wrapper) =>
+  wrapper.findAll('.b-inspector__title').map((title) => title.text());
+
+/**
+ * An inspector's own close button. The insights inspector sits inside the
+ * configuration one's page, so which panel a button belongs to is read from
+ * the inspector it is inside rather than from the order of the two.
+ */
+function closeButton(wrapper: Wrapper, panel: 'config' | 'insights') {
+  const button = wrapper
+    .findAll('.b-inspector__icons button')
+    .find(
+      (candidate) =>
+        Boolean(candidate.element.closest('.row__inspector--insights')) ===
+        (panel === 'insights'),
+    );
+  if (!button) throw new Error(`the ${panel} panel has no close button`);
+  return button;
+}
+
+/**
+ * Opens the navigation menu and hands back its items. The menu is teleported
+ * to the body, so it opens over the inspectors, and is read from there.
+ */
+async function openMenu(wrapper: Wrapper) {
+  await wrapper.find('button[aria-label="Open navigation"]').trigger('click');
+  const items = () =>
+    Array.from(document.querySelectorAll('[role="menuitem"]')).map(
+      (item) => new DOMWrapper(item),
+    );
+  await vi.waitFor(() => {
+    if (!items().length) throw new Error('the navigation menu did not open');
+  });
+  return items();
+}
+
+const listboxOptions = () =>
+  Array.from(document.querySelectorAll('[role="option"]')).map(
+    (option) => new DOMWrapper(option),
+  );
+
+/** Presses a dropdown's trigger and waits for its options to appear. */
+async function openDropdown(combobox: DOMWrapper<Element>) {
+  await combobox.trigger('click');
+  await vi.waitFor(() => {
+    if (!document.querySelector('[role="option"]')) {
+      throw new Error('the dropdown did not open');
+    }
+  });
+}
+
+/**
+ * Presses the option showing this label. Options append their selected state
+ * to their text for screen readers, so they match on the label they show.
+ */
+async function pickOption(label: string) {
+  const option = listboxOptions().find((candidate) =>
+    candidate.text().replace(/\s+/g, ' ').includes(label),
+  );
+  if (!option) throw new Error(`no option showing "${label}"`);
+  await option.trigger('click');
+}
+
 describe('the explorer renders', () => {
   it('opens on Flow with one row and both side columns', async () => {
     resetState();
     const wrapper = await mountApp();
 
-    await wrapper.find('button[aria-label="Open navigation"]').trigger('click');
-    expect(wrapper.findAll('.app__mode').map((mode) => mode.text())).toEqual([
-      'Flow',
-      'Screen library',
-    ]);
+    const views = await openMenu(wrapper);
+    expect(views.map((view) => view.text())).toEqual(['Flow', 'Screen library']);
     expect(wrapper.findAll('.row')).toHaveLength(1);
     expect(wrapper.find('.config').exists()).toBe(true);
     expect(wrapper.find('.insights').exists()).toBe(true);
     expect(wrapper.find('.chart').exists()).toBe(true);
-    expect(wrapper.find('.insights__label').text()).toBe('See amount');
-    expect(wrapper.find('.insights__header').exists()).toBe(true);
+    // Each panel is an inspector, so the screen's name and the configuration's
+    // are their inspectors' titles. The insights one is nested in the
+    // configuration one's page, so it comes first.
+    expect(inspectorTitles(wrapper)).toEqual(['See amount', 'Configuration']);
     expect(wrapper.find('.insights__body').exists()).toBe(true);
-    expect(wrapper.find('.insights__link').text()).toContain(
-      'View in screen library',
-    );
-    // The link sits in the header, to the right of the screen name, icon
-    // after text.
-    expect(wrapper.find('.insights__header .insights__link').exists()).toBe(
-      true,
-    );
+    // The library link is placed in the inspector's header, beside the
+    // close button, ahead of the sections.
+    expect(wrapper.find('.insights__link').text()).toBe('View in library');
     expect(
       wrapper
-        .find('.insights__label')
-        .element.nextElementSibling?.classList.contains('insights__link'),
+        .find('.insights__link')
+        .element.nextElementSibling?.classList.contains('insights__body'),
     ).toBe(true);
-    expect(
-      wrapper.find('.insights__link .p-icon').element.nextElementSibling,
-    ).toBeNull();
-    expect(wrapper.find('.config__label').text()).toBe('Configuration');
-    expect(wrapper.find('.config__header').exists()).toBe(true);
     expect(wrapper.find('.config__footer').exists()).toBe(true);
-    expect(wrapper.find('.config__preset .p-select__label').text()).toBe(
+    expect(wrapper.find('.config__preset .b-field-label').text()).toBe(
       'Preset',
     );
     expect(wrapper.find('.config__help').text()).toBe(
       "Choose a merchant to use that account's configuration.",
     );
     expect(wrapper.find('.config__fields').exists()).toBe(true);
-    expect(wrapper.find('.config__section-title').text()).toBe('Details');
-    expect(wrapper.find('.features__title').text()).toBe('Features');
+    // Inside an inspector the sections are plain titled blocks, split by
+    // Bento's dividers rather than each sitting in its own card.
+    expect(wrapper.find('.config__fields .p-section__title').text()).toBe(
+      'Details',
+    );
+    expect(wrapper.find('.features .p-section__title').text()).toBe('Features');
+    expect(wrapper.findAll('.config .b-card')).toHaveLength(0);
+    expect(wrapper.findAll('.config .b-divider').length).toBeGreaterThan(0);
+    expect(wrapper.findAll('.insights .b-divider').length).toBeGreaterThan(0);
     expect(wrapper.find('.app__topbar').findAll('.p-select')).toHaveLength(0);
     expect(wrapper.find('.display-pills').exists()).toBe(false);
     expect(wrapper.find('.app__topbar .p-toggle').text()).toContain(
@@ -104,10 +226,16 @@ describe('the explorer renders', () => {
     const state = resetState();
     const wrapper = await mountApp();
 
-    // The period selector lives in the metrics header, to the right of it.
-    const period = wrapper.find('.insights .metrics__header .p-select__control');
-    expect(period.exists()).toBe(true);
-    await period.setValue('24h');
+    // The period dropdown sits in the metrics section's header. This is the
+    // one place the options are opened for real, proving the whole path from
+    // a press on the dropdown to the state behind it.
+    const period = wrapper.find(
+      '.insights .metrics .p-section__header [role="combobox"]',
+    );
+    expect(period.attributes('aria-label')).toBe('Period');
+
+    await openDropdown(period);
+    await pickOption('Last 24 hours');
     expect(state.range).toBe('24h');
   });
 
@@ -121,21 +249,23 @@ describe('the explorer renders', () => {
     expect(state.mode).toBe('screens');
     expect(state.selectedScreenKey).toBe(`${state.flow}:${state.panes[0]!.step}`);
     expect(wrapper.find('.formats').exists()).toBe(true);
-    expect(wrapper.find('.formats__panel-title').text()).toBe('See amount');
+    // The library panel is the same Bento inspector as in Flow, titled with
+    // the screen's name.
+    expect(wrapper.find('.formats .b-inspector__title').text()).toBe(
+      'See amount',
+    );
     // One metrics section, with the period selector in its header.
     expect(wrapper.findAll('.formats__panel .p-select')).toHaveLength(1);
     expect(wrapper.findAll('.formats__panel .metrics')).toHaveLength(1);
-    expect(wrapper.find('.formats__panel .metrics__title').text()).toBe(
-      'Metrics',
+    expect(
+      wrapper.find('.formats__panel .metrics .p-section__title').text(),
+    ).toBe('Metrics');
+    expect(wrapper.find('.formats__panel .metrics__figures').text()).toMatch(
+      /Seen.+Drop-off.+Avg time/,
     );
     expect(
       wrapper
-        .findAll('.formats__panel .metrics__group-title')
-        .map((group) => group.text()),
-    ).toEqual(['Screen', 'Flow']);
-    expect(
-      wrapper
-        .find('.formats__panel .metrics__header .p-select__control')
+        .find('.formats__panel .metrics .p-section__header [role="combobox"]')
         .exists(),
     ).toBe(true);
   });
@@ -147,11 +277,8 @@ describe('the explorer renders', () => {
     const wrapper = await mountApp();
 
     expect(wrapper.find('.app__back').exists()).toBe(true);
-    await wrapper.find('button[aria-label="Open navigation"]').trigger('click');
-    const flowOption = wrapper
-      .findAll('.app__mode')
-      .find((mode) => mode.text() === 'Flow')!;
-    await flowOption.trigger('click');
+    const views = await openMenu(wrapper);
+    await views.find((view) => view.text() === 'Flow')!.trigger('click');
 
     expect(state.mode).toBe('flow');
     expect(state.selectedScreenKey).toBe('');
@@ -199,39 +326,39 @@ describe('the explorer renders', () => {
     expect(state.compare).toBe(true);
     expect(wrapper.findAll('.row')).toHaveLength(2);
     expect(wrapper.findAll('.chart')).toHaveLength(1);
-    expect(wrapper.findAll('.insights__label').map((label) => label.text())).toEqual([
+    // Both rows carry their own pair of inspectors, each naming the
+    // configuration it belongs to.
+    expect(inspectorTitles(wrapper)).toEqual([
       'See amount',
-      'See amount · B',
-    ]);
-    expect(
-      wrapper.findAll('button[aria-label="Hide metrics and properties"]'),
-    ).toHaveLength(1);
-    expect(wrapper.findAll('.config__label').map((label) => label.text())).toEqual([
       'Configuration',
+      'See amount · B',
       'B',
     ]);
-    expect(wrapper.findAll('button[aria-label="Hide configuration"]')).toHaveLength(
-      1,
-    );
     expect(
       wrapper.findAll('button[aria-label="Remove this configuration"]'),
     ).toHaveLength(1);
-    expect(
-      wrapper
-        .find('button[aria-label="Remove this configuration"] svg path')
-        .attributes('d'),
-    ).toContain('M4 7');
+    // Removing a configuration is an icon-only button: its name is read from
+    // the label, and the icon is all it draws.
+    const remove = wrapper.find(
+      'button[aria-label="Remove this configuration"]',
+    );
+    expect(remove.text()).toBe('');
+    expect(remove.find('.b-button__icon-left .p-icon').exists()).toBe(true);
 
+    // Both rows' panels close together, and the one button that brings each
+    // back belongs to the first row.
     state.configOpen = false;
     await wrapper.vm.$nextTick();
-    expect(wrapper.findAll('button[aria-label="Show configuration"]')).toHaveLength(
-      1,
-    );
+    expect(wrapper.findAll('.config')).toHaveLength(0);
+    expect(
+      wrapper.findAll('button[aria-label="Open configuration"]'),
+    ).toHaveLength(1);
 
     state.insightsOpen = false;
     await wrapper.vm.$nextTick();
+    expect(wrapper.findAll('.insights')).toHaveLength(0);
     expect(
-      wrapper.findAll('button[aria-label="Show metrics and properties"]'),
+      wrapper.findAll('button[aria-label="Open metrics and properties"]'),
     ).toHaveLength(1);
 
     expect(wrapper.findAll('.chart__marker').map((marker) => marker.text())).toEqual([
@@ -244,31 +371,31 @@ describe('the explorer renders', () => {
     const state = resetState();
     const wrapper = await mountApp();
 
-    // The hide buttons float over the screens area, outside the panels,
-    // beside each panel's edge.
-    const hideConfig = wrapper.find('.row__hide--config');
-    expect(hideConfig.exists()).toBe(true);
-    expect(hideConfig.element.parentElement?.classList.contains('row')).toBe(
-      true,
-    );
-    const hideInsights = wrapper.find('.row__hide--insights');
-    expect(hideInsights.exists()).toBe(true);
-    expect(hideInsights.element.parentElement?.classList.contains('row')).toBe(
-      true,
-    );
+    // A panel is closed from the inspector's own close button, and while it
+    // is open nothing else offers to open it.
+    expect(wrapper.find('.row__open--config').exists()).toBe(false);
+    expect(wrapper.find('.row__open--insights').exists()).toBe(false);
 
-    await wrapper.find('button[aria-label="Hide configuration"]').trigger('click');
+    await closeButton(wrapper, 'config').trigger('click');
     expect(wrapper.find('.config').exists()).toBe(false);
-    await wrapper.find('button[aria-label="Show configuration"]').trigger('click');
+    // Closed, the panel leaves nothing behind but the button that opens it,
+    // floating over the screens.
+    const openConfig = wrapper.find('.row__open--config');
+    expect(openConfig.attributes('aria-label')).toBe('Open configuration');
+    expect(openConfig.element.parentElement?.classList.contains('row__page')).toBe(
+      true,
+    );
+    await openConfig.trigger('click');
     expect(wrapper.find('.config').exists()).toBe(true);
+    expect(wrapper.find('.row__open--config').exists()).toBe(false);
 
-    await wrapper
-      .find('button[aria-label="Hide metrics and properties"]')
-      .trigger('click');
+    await closeButton(wrapper, 'insights').trigger('click');
     expect(wrapper.find('.insights').exists()).toBe(false);
-    await wrapper
-      .find('button[aria-label="Show metrics and properties"]')
-      .trigger('click');
+    const openInsights = wrapper.find('.row__open--insights');
+    expect(openInsights.attributes('aria-label')).toBe(
+      'Open metrics and properties',
+    );
+    await openInsights.trigger('click');
     expect(wrapper.find('.insights').exists()).toBe(true);
 
     const journeyToggle = wrapper.find('.app__topbar input[role="switch"]');
@@ -381,12 +508,15 @@ describe('the explorer renders', () => {
     const state = resetState();
     const wrapper = await mountApp();
 
-    expect(wrapper.find('.screen-layout-switch__option--active').text()).toBe(
-      'One screen',
-    );
-    await wrapper
-      .find('.screen-layout-switch__option:nth-child(2)')
-      .trigger('click');
+    // The switch is a segmented control: one radio per layout, the chosen
+    // one checked.
+    const layouts = () =>
+      wrapper.findAll('.screen-layout-switch input[type="radio"]');
+    const chosenLayout = () =>
+      layouts().find((layout) => layout.attributes('aria-checked') === 'true')!;
+
+    expect(chosenLayout().attributes('aria-label')).toBe('One screen');
+    await layouts()[1]!.setValue(true);
 
     expect(state.screenLayout).toBe('all');
     expect(wrapper.findAll('.screen-strip')).toHaveLength(1);
@@ -395,19 +525,14 @@ describe('the explorer renders', () => {
       'row__screen--all',
     );
 
-    await wrapper
-      .find('.screen-layout-switch__option:nth-child(1)')
-      .trigger('click');
+    await layouts()[0]!.setValue(true);
     expect(state.screenLayout).toBe('single');
     expect(wrapper.findAll('.screen-strip')).toHaveLength(0);
   });
 
   it('sizes the shopper screen from the selected device geometry', async () => {
     const wrapper = await mountApp();
-    const deviceSelect = wrapper.findAll('.config .p-select__control')[1]!;
-
-    await deviceSelect.setValue('s1f2');
-    await wrapper.vm.$nextTick();
+    await chooseIn(wrapper, '.config', 'Device', 's1f2');
 
     expect(wrapper.find('.stage').attributes('style')).toContain(
       '--screen-width: 380px',
@@ -441,7 +566,7 @@ describe('the explorer renders', () => {
         return (
           button.text() === '' &&
           button.classes('row__branch-button') &&
-          button.element.lastElementChild?.classList.contains('p-icon')
+          button.find('.b-button__icon-left .p-icon').exists()
         );
       }),
     ).toBe(true);
@@ -494,7 +619,7 @@ describe('the explorer renders', () => {
         return (
           button.text() === '' &&
           button.classes('row__branch-button') &&
-          button.element.firstElementChild?.classList.contains('p-icon')
+          button.find('.b-button__icon-left .p-icon').exists()
         );
       }),
     ).toBe(true);
@@ -558,13 +683,40 @@ describe('the explorer renders', () => {
       'Declined',
     ]);
 
+    // Setup links follow the selected screen, not every feature enabled in
+    // the flow.
+    expect(wrapper.find('.properties__row--ca').exists()).toBe(false);
     state.panes[0]!.step = 'choose-tip';
     await wrapper.vm.$nextTick();
-    expect(wrapper.find('.properties__link--docs').attributes('href')).toBe(
-      'https://docs.adyen.com/point-of-sale/tipping',
+    expect(
+      wrapper
+        .findAll('.properties .b-structured-list-item__label')
+        .map((label) => label.text()),
+    ).toEqual(['Team', 'CA settings', 'Docs', 'Roles']);
+    expect(wrapper.find('.properties__link--ca').text()).toContain('Tip amounts');
+    expect(wrapper.find('.properties__link--ca').attributes('href')).toBe(
+      'https://ca-live.adyen.com/ca/ca/',
     );
+    expect(
+      wrapper
+        .findAll('.properties__link--docs')
+        .find((link) => link.attributes('href')?.includes('/tipping/'))!
+        .attributes('href'),
+    ).toBe(
+      'https://docs.adyen.com/point-of-sale/tipping/tipping-from-terminal',
+    );
+    expect(wrapper.find('.properties__row--roles').text()).toContain(
+      'Merchant POS Terminal Management',
+    );
+    // Only the role's name: no description and no roles docs link.
+    expect(
+      wrapper.find('.properties__row--roles .b-structured-list-item__value').text(),
+    ).toBe('Merchant POS Terminal Management');
+    expect(
+      wrapper.findAll('.properties__link--docs').map((link) => link.text()),
+    ).toEqual(['Tipping docs']);
 
-    await tipping.find('select').setValue('custom');
+    await chooseIn(wrapper, '.features', 'Option', 'custom');
     expect(state.panes[0]!.features.tipping).toBe('custom');
     expect(wrapper.findAll('.chart__node').map((node) => node.text())).toContain(
       'Enter tip amount',
@@ -584,34 +736,98 @@ describe('the explorer renders', () => {
     resetState();
     const wrapper = await mountApp();
 
-    expect(wrapper.find('.insights').text()).toContain('Properties');
-    expect(wrapper.find('.properties__link--slack').attributes('href')).toBe(
+    expect(wrapper.find('.insights').text()).not.toContain('Properties');
+    expect(wrapper.find('.properties').text()).not.toMatch(
+      /Devices|Firmware|Languages|Currencies/,
+    );
+    expect(wrapper.find('.properties__row--ca').exists()).toBe(false);
+    expect(wrapper.find('.properties__row--roles').exists()).toBe(false);
+    expect(wrapper.find('.properties .p-section__header').exists()).toBe(false);
+    expect(wrapper.find('.properties__slack').attributes('href')).toBe(
       'https://adyen.enterprise.slack.com/',
     );
-    expect(wrapper.find('.properties__link--slack .p-icon').exists()).toBe(true);
+    expect(wrapper.find('.properties__slack .p-slack-logo').exists()).toBe(true);
 
-    // One Metrics card: the period selector sits in its header, the screen
-    // group carries the errors, and the flow group the funnel.
+    // One Metrics section: the period selector sits in its header, then the
+    // screen's figures, the flow's alluvial and the screen's errors.
     expect(wrapper.findAll('.insights .metrics')).toHaveLength(1);
-    expect(wrapper.find('.insights .metrics__title').text()).toBe('Metrics');
+    expect(wrapper.find('.insights .metrics .p-section__title').text()).toBe(
+      'Metrics',
+    );
     expect(
       wrapper
-        .findAll('.insights .metrics__group-title')
-        .map((group) => group.text()),
-    ).toEqual(['Screen', 'Flow']);
-    expect(
-      wrapper.find('.insights .metrics__header .p-select__control').exists(),
+        .find('.insights .metrics .p-section__header [role="combobox"]')
+        .exists(),
     ).toBe(true);
-
-    const groups = wrapper.findAll('.insights .metrics__group');
-    expect(groups[0]!.find('.metrics__errors-title').text()).toBe(
+    expect(wrapper.find('.insights .metrics__figures').text()).toMatch(
+      /Seen.+Drop-off.+Avg time/,
+    );
+    expect(wrapper.find('.insights .metrics__chart').exists()).toBe(true);
+    expect(wrapper.find('.insights .metrics__errors-title').text()).toBe(
       'Possible errors',
     );
-    expect(groups[0]!.findAll('.metrics__error').length).toBeGreaterThan(0);
-    expect(groups[1]!.find('.metrics__errors-title').exists()).toBe(false);
-    expect(wrapper.findAll('.metrics__funnel-row').length).toBeGreaterThan(2);
-    expect(wrapper.find('.metrics__funnel-stage').exists()).toBe(true);
-    expect(wrapper.find('.metrics__funnel-track').exists()).toBe(false);
+    expect(wrapper.findAll('.insights .metrics__error').length).toBeGreaterThan(0);
+    expect(wrapper.find('.metrics__funnel').exists()).toBe(false);
+    expect(wrapper.find('.metrics__chart-switch').exists()).toBe(false);
+  });
+
+  it('charts the whole flow as an alluvial', async () => {
+    resetState();
+    const wrapper = await mountApp();
+    const insights = wrapper.find('.insights');
+
+    // No heading: the expand button floats over the chart's corner.
+    expect(insights.find('.metrics__chart-title').exists()).toBe(false);
+    expect(
+      insights.find('.metrics__chart > .metrics__expand-surface .metrics__expand')
+        .exists(),
+    ).toBe(true);
+
+    const chart = insights.find('.alluvial');
+    expect(chart.classes()).toContain('alluvial--compact');
+    const labels = chart
+      .findAll('.alluvial__label-name')
+      .map((label) => label.text());
+    expect(labels).toEqual(
+      expect.arrayContaining(['See amount', 'Success', 'Declined', 'Dropped off']),
+    );
+    expect(chart.findAll('.alluvial__node--dropped')).toHaveLength(1);
+    // A decline is a negative outcome, told in the same critical colour.
+    expect(
+      chart.find('[data-node="branch:declined"]').classes(),
+    ).toContain('alluvial__node--negative');
+    expect(
+      chart.find('[data-link$=">branch:declined"]').attributes('fill'),
+    ).toMatch(/^url\(#/);
+
+    // Hovering a node mutes everything it is not directly linked to.
+    await chart.find('[data-node="step:processing"]').trigger('mouseenter');
+    expect(
+      chart.find('[data-node="step:see-amount"]').classes(),
+    ).toContain('alluvial__node--muted');
+    expect(
+      chart.find('[data-node="step:success"]').classes(),
+    ).not.toContain('alluvial__node--muted');
+    await chart.find('[data-node="step:processing"]').trigger('mouseleave');
+    expect(chart.findAll('.alluvial__node--muted')).toHaveLength(0);
+  });
+
+  it('expands the alluvial into a fullscreen modal', async () => {
+    resetState();
+    const wrapper = await mountApp();
+
+    const modal = wrapper.find('.insights .metrics__modal');
+    expect(modal.exists()).toBe(true);
+    expect(modal.find('.metrics__modal-chart').exists()).toBe(false);
+
+    await wrapper.find('.insights .metrics__expand').trigger('click');
+    await flushPromises();
+    const chart = modal.find('.metrics__modal-chart');
+    expect(chart.exists()).toBe(true);
+    // The fullscreen chart has room for counts and left-hand first labels.
+    expect(chart.classes()).not.toContain('alluvial--compact');
+    expect(chart.find('.alluvial__label--right').exists()).toBe(true);
+    expect(chart.find('.alluvial__label-value').text()).toMatch(/·/);
   });
 
   it('filters the screen library and opens a screen in every device format', async () => {
@@ -711,11 +927,15 @@ describe('the explorer renders', () => {
       '/screens/unattended-preauth/see-instructions--ams1--de-DE--USD.png',
     );
 
-    // Properties and metrics anchored to the right.
-    expect(wrapper.find('.formats__panel-title').text()).toBe(
+    // The Properties content matches the plain section used in Flow, without
+    // its former subhead.
+    expect(wrapper.find('.formats .b-inspector__title').text()).toBe(
       'See instructions',
     );
-    expect(wrapper.find('.formats__panel .properties').exists()).toBe(true);
+    const properties = wrapper.find('.formats__panel .properties');
+    expect(properties.exists()).toBe(true);
+    expect(properties.classes()).toContain('p-section--plain');
+    expect(properties.find('.p-section__header').exists()).toBe(false);
 
     // Back returns to the grid of all screens with its filters intact.
     await wrapper.find('.app__back').trigger('click');
@@ -732,7 +952,9 @@ describe('the explorer renders', () => {
     expect(wrapper.findAll('.formats__device').map((d) => d.text())).toEqual([
       'E285 handheld',
     ]);
-    expect(wrapper.find('.formats__panel-title').text()).toBe('Present card');
+    expect(wrapper.find('.formats .b-inspector__title').text()).toBe(
+      'Present card',
+    );
     expect(wrapper.find('.formats__panel .metrics__errors-title').text()).toBe(
       'Possible errors',
     );
@@ -744,35 +966,23 @@ describe('the explorer renders', () => {
     const wrapper = await mountApp();
 
     // Compare by joins the toolbar as a dropdown, off by default.
-    const compareBy = () =>
-      wrapper.find('.display-pills__compare .p-select__control');
-    expect(compareBy().exists()).toBe(true);
-    await compareBy().setValue('device');
+    const compareBy = (property: string) =>
+      chooseIn(wrapper, '.display-pills', 'Compare', property);
+    expect(
+      wrapper.find('.display-pills__compare [role="combobox"]').exists(),
+    ).toBe(true);
+    await compareBy('device');
     expect(state.libraryCompareOn).toBe(true);
 
     // Comparing moves the property's values picker left of the divider,
     // next to the picker that chose it.
-    expect(
-      wrapper.find('.display-pills button[aria-label="Devices"]').exists(),
-    ).toBe(true);
-    expect(
-      wrapper
-        .findAll('.display-pills .p-select__label')
-        .map((label) => label.text()),
-    ).toEqual(['Compare', 'Language', 'Release']);
-    await wrapper
-      .find('.display-pills button[aria-label="Devices"]')
-      .trigger('click');
-    const deviceChoices = wrapper
-      .find('.p-multi-select__menu')
-      .findAll('.p-multi-select__option');
-    for (const label of ['E285 handheld', 'S1F2 countertop']) {
-      await deviceChoices
-        .find((option) => option.text().includes(label))!
-        .find('input')
-        .setValue(true);
-    }
-    await wrapper.find('.p-multi-select__apply').trigger('click');
+    expect(dropdownNames(wrapper, '.display-pills')).toEqual([
+      'Compare',
+      'Devices',
+      'Language',
+      'Release',
+    ]);
+    await chooseManyIn(wrapper, '.display-pills', 'Devices', ['e285', 's1f2']);
     expect(state.libraryCompareOptions).toEqual(['e285', 's1f2']);
 
     // Every card shows one mini preview per compared device.
@@ -795,21 +1005,12 @@ describe('the explorer renders', () => {
 
     // Switching the property clears its values and compares languages instead.
     await wrapper.find('.app__back').trigger('click');
-    await compareBy().setValue('language');
+    await compareBy('language');
     expect(state.libraryCompareOptions).toEqual([]);
-    await wrapper
-      .find('.display-pills button[aria-label="Languages"]')
-      .trigger('click');
-    const languageChoices = wrapper
-      .find('.p-multi-select__menu')
-      .findAll('.p-multi-select__option');
-    for (const language of ['en-US', 'de-DE']) {
-      await languageChoices
-        .find((option) => option.text().includes(language))!
-        .find('input')
-        .setValue(true);
-    }
-    await wrapper.find('.p-multi-select__apply').trigger('click');
+    await chooseManyIn(wrapper, '.display-pills', 'Languages', [
+      'en-US',
+      'de-DE',
+    ]);
     expect(state.libraryCompareOptions).toEqual(['en-US', 'de-DE']);
 
     const comparedCard = wrapper
@@ -822,19 +1023,17 @@ describe('the explorer renders', () => {
     // The compared property's picker sits left of the divider; the
     // selectors that stay right of it remain single and keep applying to
     // every preview.
-    expect(
-      wrapper.find('.display-pills button[aria-label="Languages"]').exists(),
-    ).toBe(true);
-    expect(
-      wrapper
-        .findAll('.display-pills .p-select__label')
-        .map((label) => label.text()),
-    ).toEqual(['Compare', 'Device', 'Release']);
+    expect(dropdownNames(wrapper, '.display-pills')).toEqual([
+      'Compare',
+      'Languages',
+      'Device',
+      'Release',
+    ]);
     expect(window.location.hash).toContain('lcmp=1');
     expect(window.location.hash).toContain('lcp=language');
 
     // Turning the dropdown off clears the comparison.
-    await compareBy().setValue('');
+    await compareBy('');
     expect(state.libraryCompareOn).toBe(false);
     expect(state.libraryCompareOptions).toEqual([]);
     expect(
@@ -842,45 +1041,34 @@ describe('the explorer renders', () => {
     ).toBe(false);
   });
 
-  it('applies multi-select choices and closes on an outside press', async () => {
+  it('filters the library by feature once the choice is applied', async () => {
     const state = resetState();
     state.mode = 'screens';
     const wrapper = await mountApp();
     const allCards = wrapper.findAll('.screen-card').length;
 
-    const featureControl = () => wrapper.find('button[aria-label="Feature"]');
+    // A multi-select keeps its choices until they are applied, so this one
+    // is driven through its own options rather than through the component.
+    const apply = () =>
+      Array.from(document.querySelectorAll('.b-popover__footer button'))
+        .map((button) => new DOMWrapper(button))
+        .find((button) => button.text() === 'Apply')!;
     const applyDisabled = () =>
-      (
-        wrapper.find('.p-multi-select__apply').element as HTMLButtonElement
-      ).disabled;
-    const tippingCheckbox = () =>
-      wrapper
-        .find('.p-multi-select__menu')
-        .findAll('.p-multi-select__option')
-        .find((option) => option.text().includes('Tipping'))!
-        .find('input');
+      (apply().element as HTMLButtonElement).disabled;
 
-    await featureControl().trigger('click');
-    expect(wrapper.find('.p-multi-select__menu').exists()).toBe(true);
+    await openDropdown(
+      wrapper.find('.app__leading [role="combobox"][aria-label="Feature"]'),
+    );
     expect(applyDisabled()).toBe(true);
 
-    await tippingCheckbox().setValue(true);
+    await pickOption('Tipping');
     expect(applyDisabled()).toBe(false);
-    expect(wrapper.findAll('.screen-card').length).toBe(allCards);
-    expect(state.filterFeatures).toEqual([]);
-
-    document.dispatchEvent(new Event('pointerdown'));
-    await wrapper.vm.$nextTick();
-    expect(wrapper.find('.p-multi-select__menu').exists()).toBe(false);
     expect(state.filterFeatures).toEqual([]);
     expect(wrapper.findAll('.screen-card').length).toBe(allCards);
 
-    await featureControl().trigger('click');
-    await tippingCheckbox().setValue(true);
-    await wrapper.find('.p-multi-select__apply').trigger('click');
+    await apply().trigger('click');
     expect(state.filterFeatures).toEqual(['tipping']);
     expect(wrapper.findAll('.screen-card').length).toBeLessThan(allCards);
-    expect(wrapper.find('.p-multi-select__menu').exists()).toBe(false);
   });
 
   it('opens Ask from the header and answers a suggestion', async () => {

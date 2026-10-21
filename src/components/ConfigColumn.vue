@@ -14,24 +14,28 @@ import {
   setConfigValue,
   useAppState,
 } from '../lib/state';
+import { featuresForFlow } from '../lib/features';
+import { BentoDivider } from '@adyen/bento-vue3';
 import FeatureToggles from './FeatureToggles.vue';
 import PButton from './ui/PButton.vue';
 import PIconButton from './ui/PIconButton.vue';
+import PSection from './ui/PSection.vue';
 import PSelect from './ui/PSelect.vue';
 
 /**
- * The configuration for one row. Flow and period are owned by the master
- * chart above the rows; this column only contains per-configuration settings.
+ * The configuration for one row, shown as the content of its inspector: the
+ * preset, the details and the feature switches, each a section between the
+ * inspector's dividers. Flow and period are owned by the master chart above
+ * the rows; this panel only holds per-configuration settings.
  */
-const props = defineProps<{
-  paneIndex: number;
-  /** Configuration name, empty when only one configuration is shown. */
-  label: string;
-}>();
+const props = defineProps<{ paneIndex: number }>();
 
 const state = useAppState();
 const pane = computed(() => state.panes[props.paneIndex]!);
 const isFirst = computed(() => props.paneIndex === 0);
+const hasFeatures = computed(() => featuresForFlow(state.flow).length > 0);
+/** The first configuration offers a comparison, the second removes itself. */
+const hasAction = computed(() => (isFirst.value ? !state.compare : true));
 
 const deviceOptions = devices.map((device) => ({
   value: device.id,
@@ -46,21 +50,9 @@ const toOptions = (values: string[]) =>
 </script>
 
 <template>
-  <aside class="config">
-    <header class="config__header">
-      <span class="config__label">{{ isFirst ? 'Configuration' : label }}</span>
-    </header>
-    <span class="config__actions">
-      <PIconButton
-        v-if="!isFirst"
-        icon="trash"
-        label="Remove this configuration"
-        @click="removeComparison(state)"
-      />
-    </span>
-
+  <div class="config">
     <div class="config__body">
-      <div class="config__preset px-card">
+      <section class="config__preset">
         <PSelect
           label="Preset"
           :model-value="pane.config.merchant"
@@ -71,10 +63,11 @@ const toOptions = (values: string[]) =>
         <p class="config__help">
           Choose a merchant to use that account's configuration.
         </p>
-      </div>
+      </section>
 
-      <div class="config__fields px-card">
-        <h3 class="config__section-title">Details</h3>
+      <BentoDivider class="config__divider" />
+
+      <PSection class="config__fields" title="Details" variant="section">
         <PSelect
           label="Device"
           :model-value="pane.config.device"
@@ -99,85 +92,56 @@ const toOptions = (values: string[]) =>
           :options="toOptions(firmwareVersions)"
           @update:model-value="setConfigValue(pane, 'firmware', $event)"
         />
-      </div>
+      </PSection>
 
-      <FeatureToggles :pane-index="paneIndex" />
+      <BentoDivider v-if="hasFeatures" class="config__divider" />
+
+      <FeatureToggles :pane-index="paneIndex" variant="section" />
     </div>
 
-    <footer v-if="isFirst && !state.compare" class="config__footer">
-      <PButton class="config__compare" @click="addComparison(state)">
+    <footer v-if="hasAction" class="config__footer">
+      <PButton
+        v-if="isFirst"
+        class="config__compare"
+        @click="addComparison(state)"
+      >
         Compare
       </PButton>
+      <PIconButton
+        v-else
+        class="config__remove"
+        icon="trash"
+        label="Remove this configuration"
+        @click="removeComparison(state)"
+      />
     </footer>
-  </aside>
+  </div>
 </template>
 
 <style scoped>
-/* The whole column scrolls: the header sits on the page background, the
- * sections float in their own cards, and the compare button sticks to the
- * bottom while the sections scroll behind it. */
+/* The panel's content fills the inspector and scrolls under the footer,
+ * which keeps the configuration's one action in reach. */
 .config {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto auto auto;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
   height: 100%;
-  width: 100%;
   min-height: 0;
-  overflow-y: auto;
-}
-
-/* The header sits directly on the page background, in no container. */
-.config__header {
-  display: contents;
-}
-
-.config__label {
-  grid-column: 1;
-  grid-row: 1;
-  display: flex;
-  align-items: center;
-  width: 100%;
-  min-height: 58px;
-  padding: 14px 16px 10px;
-  box-sizing: border-box;
-}
-
-.config__label {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--px-text-muted);
-}
-
-.config__actions {
-  grid-column: 2;
-  grid-row: 1;
-  display: flex;
-  gap: 6px;
-  align-self: start;
-  position: sticky;
-  top: 14px;
-  z-index: 4;
-  margin: 14px 16px 0 0;
 }
 
 .config__body {
-  grid-column: 1 / -1;
-  grid-row: 2;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  width: 100%;
-  padding: 8px 16px 24px;
-  box-sizing: border-box;
+  gap: 16px;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-bottom: 8px;
+  overflow-y: auto;
 }
 
 .config__preset {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  width: 100%;
 }
 
 .config__help {
@@ -187,37 +151,24 @@ const toOptions = (values: string[]) =>
   color: var(--px-text-muted);
 }
 
-.config__fields {
+.config__fields :deep(.p-section__content) {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.config__section-title {
-  margin: 0;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--px-text-muted);
-}
-
-/* The compare button floats above the sections, sticky to the bottom of the
- * column while the sections scroll behind it. */
+/* Bento's secondary button is a translucent fill, so the strip needs a solid
+ * backing in the inspector's own background to keep the button readable as
+ * the sections scroll behind it. */
 .config__footer {
-  grid-column: 1 / -1;
-  grid-row: 3;
-  position: sticky;
-  bottom: 0;
-  z-index: 3;
-  width: 100%;
-  margin-top: auto;
-  padding: 10px 16px 16px;
-  box-sizing: border-box;
+  display: flex;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  padding-top: 12px;
+  background: var(--b-color-background-primary);
 }
 
 .config__compare {
   width: 100%;
-  box-shadow: var(--px-shadow-sm);
 }
 </style>

@@ -94,6 +94,8 @@ export interface FlowStep {
   chartOnly?: boolean;
   /** Short step name shown in the timeline, e.g. "Present card". */
   title: string;
+  /** Set on steps where the payment ends badly, e.g. a decline. */
+  outcome?: 'negative';
   /** What the shopper sees and does at this step. */
   shopperDescription: string;
   /** Optional context for internal teams, e.g. what happens behind the scenes. */

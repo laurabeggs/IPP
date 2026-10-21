@@ -8,7 +8,6 @@
  */
 :root {
   color-scheme: light;
-  --px-accent: var(--b-color-link-primary);
   --px-link: var(--b-color-link-primary);
   /* The lightest grey in the palette: only white is lighter. */
   --px-bg: var(--b-color-background-primary-hover);
@@ -26,6 +25,10 @@
   --px-shadow-sm: var(--b-shadow-low);
   --px-shadow-lg: var(--b-shadow-high);
   --px-content-width: 1440px;
+  /* The side panels' width, narrower than Bento's 420px small inspector,
+     and the room their buttons need once a panel is closed. */
+  --px-panel-width: 350px;
+  --px-panel-button-inset: 56px;
   --px-font:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
     sans-serif;
@@ -41,6 +44,71 @@
   color-scheme: dark;
   --px-glass: rgba(44, 54, 68, 0.42);
   --px-glass-strong: rgba(44, 54, 68, 0.66);
+}
+
+/* The navigation menu's popover is teleported to the body and would share
+ * Bento's elevated layer with the inspectors it opens over, so it takes the
+ * navigation layer instead. */
+body > .b-popover.b-menu__popover {
+  z-index: var(--b-z-index-global-navigation);
+}
+
+/* Shared Figma inspector overrides for Flow and Screen library. The close
+ * action is a bare 16px icon, centered against the 26px title line. */
+.properties-inspector {
+  --insights-link-right: 50px;
+  font-family: var(--b-font-family-primary);
+}
+
+.properties-inspector .b-inspector__title {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.properties-inspector--library-link .b-inspector__header {
+  padding-right: 133px;
+}
+
+.properties-inspector .b-inspector__icons {
+  align-items: center;
+}
+
+.properties-inspector .b-inspector__icons .b-button {
+  width: 16px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0;
+}
+
+/* Bento doesn't expose the dropdown chevron as a slot. Use its small icon
+ * for every compact select while keeping the native compact dimensions. */
+.p-select
+  .b-dropdown-default-textbox--condensed
+  .b-dropdown-default-textbox__chevron
+  svg,
+.p-multi-select
+  .b-dropdown-default-textbox--condensed
+  .b-dropdown-default-textbox__chevron
+  svg {
+  display: none;
+}
+
+.p-select
+  .b-dropdown-default-textbox--condensed
+  .b-dropdown-default-textbox__chevron::after,
+.p-multi-select
+  .b-dropdown-default-textbox--condensed
+  .b-dropdown-default-textbox__chevron::after {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  background-color: currentColor;
+  -webkit-mask: url('@adyen/ui-assets-icons-16/svg/chevron-down-small.svg') center / contain
+    no-repeat;
+  mask: url('@adyen/ui-assets-icons-16/svg/chevron-down-small.svg') center / contain no-repeat;
+  content: '';
 }
 
 * {
@@ -71,12 +139,8 @@ select {
   font-family: inherit;
 }
 
-/* A floating container for one panel section: a solid card on the page
-   background, so the panels stay readable over whatever scrolls beneath. */
-.px-card {
-  padding: 16px;
-  background: var(--px-surface);
-  border: 1px solid var(--px-border-subtle);
-  border-radius: var(--px-radius-lg);
+/* The panel sections are Bento cards now; they float on the page background,
+   so they carry the app's own low shadow on top of Bento's outline. */
+.b-card {
   box-shadow: var(--px-shadow-sm);
 }

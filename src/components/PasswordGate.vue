@@ -67,13 +67,17 @@ async function attempt(): Promise<void> {
   background: var(--px-bg);
 }
 
+/* Bento's card supplies the surface and its padding, so the gate only sets
+ * the width, the lift off the page, and how the fields stack. */
 .gate__card {
+  width: min(320px, 100%);
+  box-shadow: var(--px-shadow-lg);
+}
+
+.gate__card :deep(.b-card__content) {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  width: min(320px, 100%);
-  padding: 24px;
-  box-shadow: var(--px-shadow-lg);
 }
 
 .gate__title {

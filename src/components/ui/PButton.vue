@@ -1,70 +1,31 @@
 <script setup lang="ts">
 /**
- * PButton is a deliberately simple placeholder button.
- *
- * It is part of the placeholder component layer in src/components/ui/. When
- * the internal component library is available, replace the internals while
- * keeping the prop API so app code does not need to change.
+ * PButton is Bento's button behind the app's own prop names, so call sites
+ * read the same as they did before the design system was adopted.
  */
+import { BentoButton } from '@adyen/bento-vue3';
+
 withDefaults(
   defineProps<{
     variant?: 'primary' | 'secondary';
     disabled?: boolean;
+    /** Compact is the default throughout the app; regular remains available. */
+    size?: 'regular' | 'compact';
   }>(),
-  { variant: 'secondary', disabled: false },
+  { variant: 'secondary', disabled: false, size: 'compact' },
 );
 
 defineEmits<{ click: [] }>();
 </script>
 
 <template>
-  <button
-    type="button"
+  <BentoButton
     class="p-button"
-    :class="`p-button--${variant}`"
+    :variant="variant"
     :disabled="disabled"
+    :condensed="size === 'compact'"
     @click="$emit('click')"
   >
     <slot />
-  </button>
+  </BentoButton>
 </template>
-
-<style scoped>
-.p-button {
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  min-height: 36px;
-  border-radius: 7px;
-  padding: 8px 14px;
-  cursor: pointer;
-  border: 1px solid var(--px-border-subtle);
-  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
-}
-
-.p-button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.p-button--primary {
-  background: var(--px-accent);
-  color: var(--b-color-label-on-color);
-  border-color: var(--px-accent);
-}
-
-.p-button--primary:not(:disabled):hover {
-  background: var(--b-color-link-primary-hover);
-}
-
-.p-button--secondary {
-  background: var(--px-surface);
-  border-color: var(--px-border-subtle);
-  color: var(--px-text);
-}
-
-.p-button--secondary:not(:disabled):hover {
-  border-color: var(--px-border);
-  box-shadow: var(--px-shadow-sm);
-}
-</style>

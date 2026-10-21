@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { BentoButton, BentoMenu, BentoSearchBar } from '@adyen/bento-vue3';
 import { features } from './data/features';
 import { currencies } from './data/catalog';
 import { allScreens, filterScreens, owningTeams } from './lib/flows';
@@ -10,7 +11,6 @@ import PasswordGate from './components/PasswordGate.vue';
 import PButton from './components/ui/PButton.vue';
 import PIcon from './components/ui/PIcon.vue';
 import PIconButton from './components/ui/PIconButton.vue';
-import PInput from './components/ui/PInput.vue';
 import PMultiSelect from './components/ui/PMultiSelect.vue';
 import PSelect from './components/ui/PSelect.vue';
 import PToggle from './components/ui/PToggle.vue';
@@ -22,8 +22,9 @@ import type { ThemeId } from './lib/theme';
 
 const state = useAppState();
 const copied = ref(false);
-const menuOpen = ref(false);
 const theme = ref<ThemeId>(preferredTheme());
+/** The header button the Ask popover points at. */
+const askAnchor = ref<HTMLElement | null>(null);
 
 // main.ts applies the theme before mount to avoid a first-paint flash;
 // applying it here as well keeps App correct when mounted on its own.
@@ -33,6 +34,13 @@ const modes: { id: ModeId; label: string }[] = [
   { id: 'flow', label: 'Flow' },
   { id: 'screens', label: 'Screen library' },
 ];
+
+const menuItems = computed(() =>
+  modes.map((mode) => ({
+    text: mode.label,
+    handler: () => selectMode(mode.id),
+  })),
+);
 
 const featureOptions = features.map((feature) => ({
   value: feature.id,
@@ -87,7 +95,6 @@ async function copyLink(): Promise<void> {
 function selectMode(mode: ModeId): void {
   state.mode = mode;
   if (mode === 'flow') state.selectedScreenKey = '';
-  menuOpen.value = false;
 }
 
 function toggleTheme(): void {
@@ -102,34 +109,30 @@ function toggleTheme(): void {
   <div class="app">
     <header class="app__topbar">
       <div class="app__leading">
-        <div class="app__menu-wrap">
-          <PIconButton
-            icon="menu"
-            :label="menuOpen ? 'Close navigation' : 'Open navigation'"
-            @click="menuOpen = !menuOpen"
-          />
-          <nav v-if="menuOpen" class="app__menu" aria-label="Views">
-            <button
-              v-for="mode in modes"
-              :key="mode.id"
-              type="button"
-              class="app__mode"
-              :class="{ 'app__mode--active': state.mode === mode.id }"
-              :aria-current="state.mode === mode.id ? 'page' : undefined"
-              @click="selectMode(mode.id)"
-            >
-              {{ mode.label }}
-            </button>
-          </nav>
-        </div>
+        <BentoMenu
+          class="app__menu"
+          :button="{
+            'aria-label': 'Open navigation',
+            variant: 'secondary',
+            condensed: true,
+          }"
+          :data="menuItems"
+          teleport
+        >
+          <template #iconLeft>
+            <PIcon name="menu" />
+          </template>
+        </BentoMenu>
         <template v-if="state.mode === 'screens' && !state.selectedScreenKey">
-          <PInput
+          <BentoSearchBar
             class="app__search"
-            label="Search"
-            hide-label
-            :model-value="state.query"
+            input-field-aria-label="Search"
             placeholder="Search screens"
-            @update:model-value="state.query = $event"
+            condensed
+            :debounce-time="0"
+            :value="state.query"
+            @input="state.query = String($event ?? '')"
+            @clear="state.query = ''"
           />
           <PMultiSelect
             label="Feature"
@@ -156,15 +159,18 @@ function toggleTheme(): void {
           </PButton>
           <span class="app__count">{{ screens.length }} screens</span>
         </template>
-        <button
+        <BentoButton
           v-else-if="state.mode === 'screens' && state.selectedScreenKey"
-          type="button"
           class="app__back"
+          variant="secondary"
+          condensed
           @click="state.selectedScreenKey = ''"
         >
-          <PIcon name="arrow-left" />
-          <span>All screens</span>
-        </button>
+          <template #iconLeft>
+            <PIcon name="arrow-left" />
+          </template>
+          All screens
+        </BentoButton>
       </div>
 
       <div class="app__actions">
@@ -187,7 +193,13 @@ function toggleTheme(): void {
           :label="copied ? 'Link copied' : 'Copy share link'"
           @click="copyLink"
         />
-        <PIconButton icon="ask" label="Ask" @click="state.askOpen = !state.askOpen" />
+        <span ref="askAnchor" class="app__ask-anchor">
+          <PIconButton
+            icon="ask"
+            label="Ask"
+            @click="state.askOpen = !state.askOpen"
+          />
+        </span>
         <PIconButton
           :icon="theme === 'dark' ? 'sun' : 'moon'"
           :label="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
@@ -201,7 +213,7 @@ function toggleTheme(): void {
       <LibraryView v-else-if="state.mode === 'screens'" />
     </main>
 
-    <AskDock v-if="state.askOpen" />
+    <AskDock v-if="state.askOpen && askAnchor" :target="askAnchor" />
   </div>
   </PasswordGate>
 </template>
@@ -222,33 +234,6 @@ function toggleTheme(): void {
   padding: 10px 40px;
   background: var(--px-surface);
   border-bottom: 1px solid var(--px-border-subtle);
-}
-
-.app__back {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 32px;
-  padding: 5px 12px 5px 9px;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--px-text);
-  background: var(--px-surface);
-  border: 1px solid var(--px-border-subtle);
-  border-radius: 7px;
-  cursor: pointer;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
-}
-
-.app__back:hover {
-  border-color: var(--px-border);
-  box-shadow: var(--px-shadow-sm);
-}
-
-.app__back :deep(.p-icon) {
-  width: 14px;
-  height: 14px;
 }
 
 .app__leading {
@@ -275,10 +260,6 @@ function toggleTheme(): void {
   white-space: nowrap;
 }
 
-.app__menu-wrap {
-  position: relative;
-}
-
 .app__actions {
   display: flex;
   align-items: center;
@@ -286,42 +267,11 @@ function toggleTheme(): void {
 }
 
 .app__menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 132px;
-  padding: 6px;
-  background: var(--px-surface);
-  border: 1px solid var(--px-border-subtle);
-  border-radius: var(--px-radius);
-  box-shadow: var(--px-shadow-sm);
+  flex: 0 0 auto;
 }
 
-.app__mode {
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  text-align: left;
-  color: var(--px-text-muted);
-  padding: 8px 10px;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.app__mode:hover {
-  color: var(--px-text);
-  background: var(--px-surface-muted);
-}
-
-.app__mode--active {
-  color: var(--px-text);
-  background: var(--b-color-background-navigation);
+.app__ask-anchor {
+  display: inline-flex;
 }
 
 .app__view {

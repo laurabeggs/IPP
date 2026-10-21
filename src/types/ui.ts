@@ -26,6 +26,7 @@ export type IconName =
   | 'arrow-right'
   | 'ask'
   | 'close'
+  | 'expand'
   | 'external-link'
   | 'trash'
   | 'link'

@@ -1,25 +1,39 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
+import {
+  BentoModalFullscreen,
+  BentoSummaryGrid,
+  BentoSummaryGridItemNumeric,
+  BentoSummaryGridItemPercentage,
+} from '@adyen/bento-vue3';
 import { timeRanges } from '../data/catalog';
 import { useAppState } from '../lib/state';
 import { formatCount, formatRate, formatSeconds } from '../lib/metrics';
+import AlluvialChart from './AlluvialChart.vue';
+import PIconButton from './ui/PIconButton.vue';
+import PSection from './ui/PSection.vue';
 import PSelect from './ui/PSelect.vue';
-import type { FunnelRow } from '../lib/metrics';
+import type { AlluvialData } from '../lib/alluvial';
 import type { ScreenMetrics, TimeRangeId } from '../types/flow';
 
 /**
  * One metrics section shared by the flow and library views: the period
- * selector sits in the header, and the figures for the screen and its whole
- * flow follow as labelled groups.
+ * selector sits in the header, the screen's figures follow in a summary
+ * grid, then the whole flow's alluvial and the screen's possible errors.
  */
-const props = defineProps<{
-  /** Metrics for the screen itself. */
-  screen: ScreenMetrics;
-  /** Metrics for the whole flow, shown as a second group when present. */
-  flow?: ScreenMetrics;
-  /** Shown instead of the flow errors by the whole-flow group. */
-  funnel?: FunnelRow[];
-}>();
+const props = withDefaults(
+  defineProps<{
+    /** Metrics for the screen itself. */
+    screen: ScreenMetrics;
+    /** The whole flow, charted under the screen's figures when present. */
+    alluvial?: AlluvialData;
+    /** Names the flow in the fullscreen chart's title. */
+    flowName?: string;
+    /** 'section' inside an inspector, where dividers separate the blocks. */
+    variant?: 'card' | 'section';
+  }>(),
+  { variant: 'card' },
+);
 
 const state = useAppState();
 
@@ -28,255 +42,241 @@ const periodOptions = timeRanges.map((range) => ({
   label: range.label,
 }));
 
-interface MetricsGroup {
-  key: string;
-  label: string;
-  metrics: ScreenMetrics;
-  errors: ScreenMetrics['errors'];
-  funnel?: FunnelRow[];
-}
+const periodLabel = computed(
+  () => timeRanges.find((range) => range.id === state.range)?.label ?? '',
+);
 
-const groups = computed<MetricsGroup[]>(() => {
-  const list: MetricsGroup[] = [
-    {
-      key: 'screen',
-      label: 'Screen',
-      metrics: props.screen,
-      errors: props.screen.errors,
-    },
-  ];
-  if (props.flow) {
-    list.push({
-      key: 'flow',
-      label: 'Flow',
-      metrics: props.flow,
-      errors: props.flow.errors,
-      funnel: props.funnel,
-    });
-  }
-  return list;
-});
+const chart = computed(() =>
+  props.alluvial?.stages ? props.alluvial : undefined,
+);
+
+const expanded = ref(false);
+/* The fullscreen chart is sized to the window when it opens, leaving room
+ * for the modal header and the padding around the chart. */
+const expandedScale = ref(360);
+
+function openExpanded(): void {
+  const viewport = typeof window === 'undefined' ? 800 : window.innerHeight;
+  expandedScale.value = Math.round(Math.min(520, Math.max(240, viewport - 300)));
+  expanded.value = true;
+}
 </script>
 
 <template>
-  <section class="metrics px-card">
-    <header class="metrics__header">
-      <h3 class="metrics__title">Metrics</h3>
+  <PSection class="metrics" title="Metrics" :variant="variant">
+    <template #header>
       <PSelect
         class="metrics__period"
         label="Period"
         hide-label
+        size="compact"
         :model-value="state.range"
         :options="periodOptions"
         @update:model-value="state.range = $event as TimeRangeId"
       />
-    </header>
+    </template>
 
-    <div v-for="group in groups" :key="group.key" class="metrics__group">
-      <h4 class="metrics__group-title">{{ group.label }}</h4>
+    <BentoSummaryGrid class="metrics__figures">
+      <template #cell-1-1>
+        <BentoSummaryGridItemNumeric
+          class="metrics__figure"
+          title="Seen"
+          size="small"
+          :label="formatCount(screen.impressions)"
+        />
+      </template>
+      <template #cell-1-2>
+        <BentoSummaryGridItemPercentage
+          class="metrics__figure"
+          title="Drop-off"
+          size="small"
+          :label="formatRate(screen.dropOffRate)"
+        />
+      </template>
+      <template #cell-1-3>
+        <BentoSummaryGridItemNumeric
+          class="metrics__figure"
+          title="Avg time"
+          size="small"
+          :label="formatSeconds(screen.avgDurationSeconds)"
+        />
+      </template>
+    </BentoSummaryGrid>
 
-      <div class="metrics__figures">
-        <div class="metrics__figure">
-          <span class="metrics__value">{{ formatCount(group.metrics.impressions) }}</span>
-          <span class="metrics__caption">Seen</span>
-        </div>
-        <div class="metrics__figure">
-          <span class="metrics__value">{{ formatRate(group.metrics.dropOffRate) }}</span>
-          <span class="metrics__caption">Drop off</span>
-        </div>
-        <div class="metrics__figure">
-          <span class="metrics__value">
-            {{ formatSeconds(group.metrics.avgDurationSeconds) }}
-          </span>
-          <span class="metrics__caption">Time</span>
-        </div>
-      </div>
+    <div v-if="chart" class="metrics__chart">
+      <AlluvialChart class="metrics__alluvial" :data="chart" compact />
+      <span class="metrics__expand-surface">
+        <PIconButton
+          class="metrics__expand"
+          icon="expand"
+          label="Expand shopper flow"
+          @click="openExpanded"
+        />
+      </span>
+    </div>
 
-      <ul v-if="group.funnel?.length" class="metrics__funnel">
-        <li v-for="row in group.funnel" :key="row.stepId" class="metrics__funnel-row">
-          <span
-            class="metrics__funnel-stage"
-            :style="{
-              width: `${Math.max(52, Math.round(row.shareOfStart * 100))}%`,
-            }"
-            :aria-label="`${row.title}: ${formatRate(row.shareOfStart)} reached`"
-          >
-            <span class="metrics__funnel-title">{{ row.title }}</span>
-            <span class="metrics__funnel-share">
-              {{ formatRate(row.shareOfStart) }}
-            </span>
+    <div v-if="screen.errors.length" class="metrics__errors-group">
+      <span class="metrics__errors-title">Possible errors</span>
+      <ul class="metrics__errors">
+        <li
+          v-for="error in screen.errors"
+          :key="error.code"
+          class="metrics__error"
+        >
+          <span>{{ error.label }}</span>
+          <span class="metrics__error-count">
+            {{ formatRate(error.rate) }}
           </span>
         </li>
       </ul>
-
-      <div v-else-if="group.errors.length" class="metrics__errors-group">
-        <span class="metrics__errors-title">Possible errors</span>
-        <ul class="metrics__errors">
-          <li
-            v-for="error in group.errors"
-            :key="error.code"
-            class="metrics__error"
-          >
-            <span>{{ error.label }}</span>
-            <span class="metrics__error-count">{{ formatRate(error.rate) }}</span>
-          </li>
-        </ul>
-      </div>
     </div>
-  </section>
+
+    <BentoModalFullscreen
+      v-if="chart"
+      class="metrics__modal"
+      :title="flowName ? `${flowName}: shopper flow` : 'Shopper flow'"
+      :contextual-label="periodLabel"
+      :is-open="expanded"
+      @update:is-open="expanded = $event"
+    >
+      <div class="metrics__modal-body">
+        <AlluvialChart
+          v-if="expanded"
+          class="metrics__modal-chart"
+          :data="chart"
+          :scale-height="expandedScale"
+        />
+      </div>
+    </BentoModalFullscreen>
+  </PSection>
 </template>
 
 <style scoped>
-.metrics {
+.metrics.p-section--plain {
+  gap: var(--b-spacer-070);
+}
+
+.metrics :deep(.p-section__header) {
+  min-height: 28px;
+}
+
+.metrics :deep(.p-section__title) {
+  font-weight: 700;
+}
+
+.metrics :deep(.p-section__content) {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--b-spacer-070);
 }
 
-.metrics__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.metrics__title {
-  margin: 0;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--px-text-muted);
-}
-
-/* The chevron moves in with the smaller control so it keeps the same
- * distance from the right edge as from the top and bottom. */
 .metrics__period {
-  --p-select-chevron-inset: 10px;
   flex: 0 0 auto;
+  width: 133px;
 }
 
-.metrics__period :deep(.p-select__control) {
-  min-height: 32px;
-  padding: 5px 28px 5px 8px;
+/* Bento's condensed textbox is 28px inside a 1px border, so 30px overall.
+ * Figma's is 28px overall: the inner textbox takes the 26px inside the
+ * border. Padding the outer box instead pushed the label down. */
+.metrics__period :deep(.b-dropdown-default-textbox--condensed) {
+  min-height: 28px;
+  height: 28px;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
-.metrics__group {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.metrics__period
+  :deep(.b-dropdown-default-textbox--condensed .b-dropdown-default-textbox__textbox) {
+  min-height: 26px;
+  height: 26px;
 }
 
-.metrics__group + .metrics__group {
-  padding-top: 14px;
-  border-top: 1px solid var(--px-border-subtle);
+.metrics__figures :deep(.b-summary-grid-item) {
+  min-width: 0;
+  gap: 2px;
 }
 
-.metrics__group-title {
-  margin: 0;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--px-text-muted);
+/* Bento adds a margin under each tile's title on top of the tile's gap. */
+.metrics__figures :deep(.b-summary-grid-item__header) {
+  margin-bottom: 0;
 }
 
-.metrics__figures {
-  display: flex;
-  gap: 22px;
-  flex-wrap: wrap;
-}
-
-.metrics__figure {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.metrics__value {
-  font-size: 19px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.metrics__caption {
-  font-size: 11px;
-  color: var(--px-text-muted);
+/* The tiles have no title icons, but the empty slot keeps its margin and
+ * would wrap titles like "Drop-off" in the narrow panel. */
+.metrics__figures :deep(.b-summary-grid-item__title-icons:empty) {
+  display: none;
 }
 
 .metrics__errors-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--b-spacer-020);
+  color: var(--b-color-label-primary);
 }
 
 .metrics__errors-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--px-text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: var(--b-text-caption-line-height);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
-.metrics__errors,
-.metrics__funnel {
+.metrics__errors {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-}
-
-.metrics__funnel {
-  align-items: center;
-  gap: 2px;
+  gap: var(--b-spacer-020);
 }
 
 .metrics__error {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  font-size: 12px;
+  gap: var(--b-spacer-060);
+  font-size: var(--b-text-body-font-size);
+  line-height: var(--b-text-body-line-height);
 }
 
 .metrics__error-count {
-  color: var(--px-text-muted);
   white-space: nowrap;
 }
 
-.metrics__funnel-row {
+.metrics__chart {
+  position: relative;
+}
+
+/* The expand button floats over the chart's top-right corner. Bento's
+ * secondary fill is translucent, so the button sits on an opaque surface
+ * that carries the shadow lifting it off the nodes and links. */
+.metrics__expand-surface {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  display: inline-flex;
+  border-radius: var(--b-border-radius-m);
+  background: var(--b-color-background-primary);
+  box-shadow: var(--b-shadow-medium);
+  transition: box-shadow var(--b-animation-duration-fast)
+    var(--b-animation-easing-standard);
+}
+
+.metrics__expand-surface:hover {
+  box-shadow: var(--b-shadow-high);
+}
+
+.metrics__modal-body {
+  box-sizing: border-box;
   display: flex;
+  align-items: center;
   justify-content: center;
-  align-items: center;
-  width: 100%;
-  min-height: 28px;
+  min-height: 100%;
+  padding: 48px clamp(24px, 6vw, 96px);
 }
 
-.metrics__funnel-stage {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  min-height: 28px;
-  padding: 5px 9px;
-  color: var(--px-text);
-  font-size: 11px;
-  background: var(--b-color-background-success-weak);
-  border: 1px solid var(--b-color-background-success-strong);
-  border-radius: 4px;
-  clip-path: polygon(3% 0, 97% 0, 100% 100%, 0 100%);
-}
-
-.metrics__funnel-title {
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.metrics__funnel-share {
-  flex: 0 0 auto;
-  color: var(--b-color-label-on-background-success-weak);
-  font-weight: 600;
-  text-align: right;
+.metrics__modal-chart {
+  max-width: 1200px;
 }
 </style>

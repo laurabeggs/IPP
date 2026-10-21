@@ -208,7 +208,7 @@ watch(candidates, () => {
 .stage__placeholder {
   position: absolute;
   inset: 12px;
-  border: 2px dashed var(--px-border);
+  border: 2px dashed rgba(31, 42, 55, 0.18);
   border-radius: 8px;
   display: flex;
   flex-direction: column;
@@ -219,18 +219,20 @@ watch(candidates, () => {
   text-align: center;
 }
 
+/* The screen itself is always light, whatever the theme, so its text keeps
+ * Bento's always-dark labels rather than following the page. */
 .stage__placeholder-title {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: var(--px-text-muted);
+  color: var(--b-color-label-always-light-tertiary-active);
 }
 
 .stage__placeholder-amount {
   margin: 0;
   font-size: 17px;
   font-weight: 700;
-  color: var(--px-text);
+  color: var(--b-color-label-always-dark);
 }
 
 .stage__unsupported {

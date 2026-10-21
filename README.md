@@ -37,25 +37,37 @@ selector. The chart sits in a subtle recessed section and
 can be collapsed. In a comparison, the current screen in each configuration
 is marked with A or B.
 
-Below the chart, each configuration gets one horizontal row:
+Below the chart, each configuration gets one horizontal row. Both side panels
+are Bento inspectors, which name the panel in their own header and hold their
+blocks as sections separated by dividers. Bento's small inspector is 420px
+wide; the app overrides it to 350px (`--px-panel-width`) so the screens keep
+room with both panels open. Below Bento's compact breakpoint the inspector
+still takes the whole row.
 
-- The left column contains its merchant, device, language, currency, firmware,
-  and feature toggles.
+- The left inspector contains its merchant, device, language, currency,
+  firmware, and feature toggles.
 - The middle column shows the current terminal screen. Back navigation is on
   the left edge and forward navigation is on the right edge. Branch choices
   stack vertically. The left and right arrow keys move every visible
   configuration together.
-- The right column contains screen properties and one Metrics section: the
-  screen's figures and possible errors, then the whole flow's figures and
-  funnel.
+- The right inspector is titled with the selected screen and contains its
+  properties and one Metrics section: the screen's figures and possible
+  errors, then the whole flow's figures and its shopper flow chart.
+- The shopper flow is an alluvial chart following the Lume data visualisation
+  guidelines (16px nodes, labels 8px from their node, drop-offs in the
+  critical colour). In the narrow panel every label sits on the right, shows
+  shares only, and long words break with a hyphen. The expand button floats
+  over the chart's top-right corner and opens it in a Bento fullscreen modal
+  with counts and shares.
 
 The screen area has a segmented control for **One screen** and **All screens**.
 The first view focuses on the selected screen. The second lays out every
 resolved screen from left to right in a horizontally scrollable strip. The
 configuration and insights panels remain above the strip while it scrolls.
 
-The configuration and insights columns collapse to icon rails. Their hide
-buttons float over the screens area beside each panel's edge. The chart also
+Each inspector is closed from its own close button, which leaves the screens
+the whole row: all that stays is the button that opens it again, floating
+over the screens in the corner the panel comes back from. The chart also
 collapses, so the screen can take the available space. **Compare** adds a
 second row with its own configuration and feature settings.
 
@@ -150,17 +162,21 @@ turned off.
   filters.
 - `src/lib/metrics.ts` derives screen metrics, flow metrics, funnel rows, and
   formatters.
+- `src/lib/alluvial.ts` turns a flow into alluvial nodes and links and lays
+  them out for a given width.
 - `src/lib/ask.ts` provides the current keyword-matched Ask placeholder.
 - `src/components/` contains the shared chart, rows, screen stage, insights,
   library cards, and Ask dock.
 - `src/components/ui/` is the placeholder component layer.
 
-## Placeholder components
+## Component layer
 
 The components in `src/components/ui/` (`PButton`, `PInput`, `PPanel`,
-`PSelect`, `PTag`, `PToggle`, `PIcon`, and `PIconButton`) are deliberately
-simple. When the internal component library is available, swap their internals
-and keep their prop APIs so app code does not need to change.
+`PSection`, `PSelect`, `PTag`, `PToggle`, `PIcon`, and `PIconButton`) wrap Bento
+components behind the app's own prop names, so app code names what it wants
+rather than each Bento component's API. `PSection` is the one with a choice
+to make: on its own it is a Bento card, and inside an inspector, where
+dividers already separate the blocks, it is a plain titled section.
 
 ## Design tokens
 
@@ -168,10 +184,10 @@ The palette is Bento's. `main.ts` imports the light and dark token stylesheets
 from `@adyen/bento-design-tokens`, and every `--px-*` token in
 `src/styles.css` aliases a `--b-*` token, so the app follows Bento's themes.
 The page and the screens sit on the palette's lightest grey,
-background-primary-hover, while the recessed chart band and the panel cards
-sit on white, background-primary. Chart nodes outside the selected
+background-primary-hover, while the recessed chart band, the side inspectors,
+and the library's cards sit on white, background-primary. Chart nodes outside the selected
 configuration use Bento's disabled background, outline, and label tokens.
-Interactive emphasis — the funnel, the selected chart node, the selected
+Interactive emphasis — the selected chart node, the selected
 screen in the all-screens strip, tags, and the A/B markers — follows Bento's
 green success family, while links, checkboxes, and focus rings follow the
 blue link-primary family. Dark mode toggles Bento's `b-dark-theme` class on
@@ -181,7 +197,7 @@ the page root alongside `data-theme`.
 
 Nothing is wired to reporting. Each step carries a 30-day baseline in
 `src/data/flows.ts` or `src/data/features.ts`, and `src/lib/metrics.ts` scales
-it for shorter periods. The funnel follows the most likely path. Ask matches
+it for shorter periods. The shopper flow chart follows the most likely path. Ask matches
 keywords and answers from the same placeholder data.
 
 ## Validate
@@ -193,8 +209,9 @@ npm run build
 ```
 
 The tests cover flow and feature data, flow resolution, chart layout, library
-filters, metrics and funnel formatting, URL round trips, shared-flow changes,
-comparison rows, collapse rails, branch navigation, arrow-key navigation,
+filters, metrics and alluvial layout, URL round trips, shared-flow changes,
+comparison rows, closing and reopening the inspectors, branch navigation,
+arrow-key navigation,
 feature toggles, the one-screen/all-screens control, the Screens tab, and the
 Ask dock.
 

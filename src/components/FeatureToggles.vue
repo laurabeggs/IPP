@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { featuresForFlow } from '../lib/features';
 import { setFeatureEnabled, setFeatureOption, useAppState } from '../lib/state';
+import PSection from './ui/PSection.vue';
 import PSelect from './ui/PSelect.vue';
 import PToggle from './ui/PToggle.vue';
 import type { Feature } from '../types/flow';
@@ -10,7 +11,14 @@ import type { Feature } from '../types/flow';
  * The feature switches for one configuration. Only features that can insert
  * screens into the flow on screen are listed.
  */
-const props = defineProps<{ paneIndex: number }>();
+const props = withDefaults(
+  defineProps<{
+    paneIndex: number;
+    /** 'section' inside an inspector, where dividers separate the blocks. */
+    variant?: 'card' | 'section';
+  }>(),
+  { variant: 'card' },
+);
 
 const state = useAppState();
 const pane = computed(() => state.panes[props.paneIndex]!);
@@ -27,8 +35,12 @@ const optionsFor = (feature: Feature) =>
 </script>
 
 <template>
-  <div v-if="applicable.length" class="features px-card">
-    <h3 class="features__title">Features</h3>
+  <PSection
+    v-if="applicable.length"
+    class="features"
+    title="Features"
+    :variant="variant"
+  >
     <div v-for="feature in applicable" :key="feature.id" class="features__item">
       <PToggle
         class="features__toggle"
@@ -46,23 +58,14 @@ const optionsFor = (feature: Feature) =>
         @update:model-value="setFeatureOption(state, pane, feature.id, $event)"
       />
     </div>
-  </div>
+  </PSection>
 </template>
 
 <style scoped>
-.features {
+.features :deep(.p-section__content) {
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
-
-.features__title {
-  margin: 0;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--px-text-muted);
 }
 
 .features__item {
@@ -71,17 +74,11 @@ const optionsFor = (feature: Feature) =>
   gap: 10px;
 }
 
+/* Bento draws the label before the switch, so the row only needs to push
+ * them to opposite edges. */
 .features__toggle {
   width: 100%;
   justify-content: space-between;
-}
-
-.features__toggle :deep(.p-toggle__label) {
-  order: 1;
-}
-
-.features__toggle :deep(.p-toggle__track) {
-  order: 2;
 }
 
 .features__option {

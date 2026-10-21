@@ -37,7 +37,7 @@ describe('the password gate', () => {
     expect(wrapper.find('.gate').exists()).toBe(true);
     expect(wrapper.find('.gate-slot').exists()).toBe(false);
 
-    await wrapper.find('.p-input__control').setValue('nope');
+    await wrapper.find('.p-input input').setValue('nope');
     await wrapper.find('.gate .p-button').trigger('click');
     await vi.waitFor(() =>
       expect(wrapper.find('.gate__error').exists()).toBe(true),
@@ -45,7 +45,7 @@ describe('the password gate', () => {
     expect(wrapper.find('.gate-slot').exists()).toBe(false);
     expect(checkPasswordMock).toHaveBeenCalledWith('nope');
 
-    await wrapper.find('.p-input__control').setValue('let-me-in');
+    await wrapper.find('.p-input input').setValue('let-me-in');
     await wrapper.find('.gate .p-button').trigger('click');
     await vi.waitFor(() =>
       expect(wrapper.find('.gate-slot').exists()).toBe(true),
@@ -56,8 +56,8 @@ describe('the password gate', () => {
 
   it('unlocks with Enter in the password field', async () => {
     const wrapper = mountGate();
-    await wrapper.find('.p-input__control').setValue('let-me-in');
-    await wrapper.find('.p-input__control').trigger('keyup.enter');
+    await wrapper.find('.p-input input').setValue('let-me-in');
+    await wrapper.find('.p-input input').trigger('keyup.enter');
     await vi.waitFor(() =>
       expect(wrapper.find('.gate-slot').exists()).toBe(true),
     );
@@ -66,8 +66,8 @@ describe('the password gate', () => {
 
   it('stays locked when the keyboard submits a wrong password', async () => {
     const wrapper = mountGate();
-    await wrapper.find('.p-input__control').setValue('nope');
-    await wrapper.find('.p-input__control').trigger('keyup.enter');
+    await wrapper.find('.p-input input').setValue('nope');
+    await wrapper.find('.p-input input').trigger('keyup.enter');
     await vi.waitFor(() =>
       expect(wrapper.find('.gate__error').exists()).toBe(true),
     );
